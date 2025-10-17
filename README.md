@@ -1,18 +1,19 @@
 # UNSCAMMED.AI Browser Extension
 
-UNSCAMMED.AI is a Manifest V3 Chrome extension that performs lightweight heuristics to highlight suspicious websites directly in the browser. It combines an always-on background service worker, a DOM-aware content script, and a popup dashboard to give immediate feedback about the page you are visiting—without sending browsing data to external services.
+UNSCAMMED.AI is a Manifest V3 Chrome extension that runs fully in the browser to flag potentially risky websites. A service worker tracks navigation events, a content script evaluates the active page with a set of heuristics, and the popup provides manual scan controls and recent telemetry. All logic executes locally—no browsing data leaves the device.
 
 ## Features
-- **Automatic navigation scans** – the background service worker (`background.js`) records top-level navigations and asks the content script to rate the destination using simple rule-based checks.
-- **In-page alerts** – the content script (`content.js`) shows dismissible banners when a domain exhibits high-risk traits such as phishing keywords, suspicious TLDs, or insecure forms.
-- **Manual rescans** – the popup (`popup/popup.html`) lets you trigger an on-demand scan of the active tab and review the most recent threat assessment.
-- **Local storage history** – recent URLs and scan metadata are cached in `chrome.storage.local` so the popup can display your total scan count and reuse fresh results.
+- **Automatic navigation scans** – the background service worker (`background.js`) listens to `chrome.webNavigation.onCompleted`, logs the navigation, and asks the content script to rate the destination.
+- **Rule-based risk scoring** – the content script (`content.js`) checks HTTPS usage, suspicious TLDs, phishing keywords, brand spoofing, and other red flags to determine a risk level.
+- **In-page alerts** – high-risk pages render a banner at the top of the DOM for ten seconds. Manual scans display toast-style status cards.
+- **Manual rescans** – the popup (`popup/`) lets you run the enhanced scan path, which adds DOM inspections for insecure forms, suspicious text, and external links.
+- **Local storage history** – URL visits and scan payloads are saved in `chrome.storage.local`. The background worker caps the history to the most recent 100 entries and increments a total scan counter for the popup display.
 
 ## How it works
 | Component | Responsibilities |
 |-----------|------------------|
 | `background.js` | Initializes default settings, listens to `webNavigation.onCompleted`, stores URL visit logs, and relays scan requests/responses between the popup and content script. |
-| `content.js` | Runs heuristics (HTTPS check, suspicious domain patterns, phishing keywords, insecure forms, external links) to classify risk levels and renders toast-style UI for alerts and manual scan results. |
+| `content.js` | Performs heuristic scans (HTTPS usage, suspicious TLDs, phishing and brand-spoofing keywords, known safe domains, insecure forms, suspicious external links) and renders in-page alerts. |
 | `popup/` | Renders the extension popup UI, shows the active tab, threat status, and usage counters, and exposes a “Scan This Site” control. |
 | `utils/urlCheck.js` | Houses reusable helpers for URL analysis (protocol, reputation, phishing indicators). These functions are currently internal utilities that can be imported into other scripts if needed. |
 
@@ -28,9 +29,9 @@ All analysis is performed client-side. The extension never transmits URLs or sca
 3. Select the project folder. You should now see the UNSCAMMED.AI shield icon in the toolbar.
 
 ## Usage
-- Visit any webpage—the content script will evaluate it automatically. High-risk pages display a red alert banner at the top of the DOM for 10 seconds.
-- Click the extension icon to open the popup. The panel shows the detected domain, the latest threat level, and aggregate scan statistics.
-- Press **Scan This Site** in the popup to perform an enhanced scan (adds form, external link, and content heuristics). The popup updates its status once the content script responds.
+- Visit any webpage—the content script evaluates it automatically. If the heuristics classify the site as high risk, a red alert banner appears at the top of the page for 10 seconds.
+- Click the extension icon to open the popup. The panel shows the active tab URL (via `chrome.tabs.query`), the most recent threat level, and counters pulled from `chrome.storage.local`.
+- Press **Scan This Site** in the popup to perform an enhanced scan. The popup sends a `MANUAL_SCAN` message to the content script, which adds DOM analysis for forms, external links, and suspicious phrases before responding.
 
 ### Supported URLs
 The extension ignores browser/extension pages such as `chrome://`, `edge://`, and local `file://` paths because Chrome blocks content scripts on those schemes. Attempting to scan them results in an “unknown” status in the popup.
@@ -38,8 +39,8 @@ The extension ignores browser/extension pages such as `chrome://`, `edge://`, an
 ## Development Tips
 - Enable the **Service Worker** logging view in `chrome://extensions/` to inspect `background.js` console output.
 - Use the browser DevTools **Console** on any tab to view messages from `content.js` and the injected alert elements.
-- Stored data (URL history and scan results) can be inspected from DevTools via `chrome.storage.local.get(null, console.log)`.
-- When adjusting heuristics, update the helper functions in `content.js` or `utils/urlCheck.js` to keep risk scoring consistent.
+- Stored data (URL history, total scan counter, and individual scan documents) can be inspected from DevTools via `chrome.storage.local.get(null, console.log)`.
+- When adjusting heuristics, update the helper functions in `content.js` and `utils/urlCheck.js` so automatic and manual scans stay in sync.
 
 ## Project Structure
 ```
