@@ -1,0 +1,25 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e00;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a00;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" fill="url(#bgGradient)" rx="16"/>
+  
+  <!-- Shield shape -->
+  <path d="M64 16L84 32V64C84 80 74 92 64 96C54 92 44 80 44 64V32L64 16Z" fill="white" stroke="#c00" stroke-width="2"/>
+  
+  <!-- Warning triangle -->
+  <path d="M64 28L76 48H52L64 28Z" fill="#c00"/>
+  
+  <!-- Exclamation mark -->
+  <rect x="62" y="52" width="4" height="16" fill="#c00"/>
+  <circle cx="64" cy="72" r="2" fill="#c00"/>
+  
+  <!-- AI text -->
+  <text x="64" y="88" text-anchor="middle" fill="white" font-size="12" font-family="Arial, sans-serif" font-weight="bold">AI</text>
+  
+  <!-- UNSCAMMED text -->
+  <text x="64" y="108" text-anchor="middle" fill="white" font-size="10" font-family="Arial, sans-serif" font-weight="bold">UNSCAMMED</text>
+</svg>

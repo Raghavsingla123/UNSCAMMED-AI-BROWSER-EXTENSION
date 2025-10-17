@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNSCAMMED.AI</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header Section -->
+    <div class="header">
+      <h1 class="title">🛡️ UNSCAMMED.AI</h1>
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span class="status-text">Browser Shield Initialized</span>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+      <div class="current-site">
+        <label class="site-label">Current Site:</label>
+        <div class="site-url" id="currentUrl">Loading...</div>
+        <div class="security-status" id="securityStatus">
+          <span class="security-icon">🔍</span>
+          <span class="security-text">Analyzing...</span>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <button class="scan-button" id="scanButton">
+        <span class="button-icon">🛡️</span>
+        <span class="button-text">Scan This Site</span>
+      </button>
+
+      <!-- Stats Section -->
+      <div class="stats">
+        <div class="stat-item">
+          <span class="stat-label">Total Scans:</span>
+          <span class="stat-value" id="totalScans">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Status:</span>
+          <span class="stat-value" id="extensionStatus">Active</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="version">v1.0.0</div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
