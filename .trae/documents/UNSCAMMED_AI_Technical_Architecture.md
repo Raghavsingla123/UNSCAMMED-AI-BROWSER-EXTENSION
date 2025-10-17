@@ -35,20 +35,24 @@ graph TD
 
 ## 2. Technology Description
 
-- **Frontend**: Vanilla JavaScript + HTML5 + CSS3
-- **Extension Framework**: Chrome Manifest V3
-- **Build System**: None (plain files for instant loading)
-- **Storage**: Chrome Extension Storage API
-- **Communication**: Chrome Message Passing API
+* **Frontend**: Vanilla JavaScript + HTML5 + CSS3
+
+* **Extension Framework**: Chrome Manifest V3
+
+* **Build System**: None (plain files for instant loading)
+
+* **Storage**: Chrome Extension Storage API
+
+* **Communication**: Chrome Message Passing API
 
 ## 3. Route Definitions
 
-| Route | Purpose |
-|-------|---------|
-| popup/popup.html | Main extension popup interface for user interaction |
-| background.js | Service worker for background processing and API management |
-| content.js | Injected script for page-level security analysis |
-| utils/urlCheck.js | Utility functions for domain and security validation |
+| Route             | Purpose                                                     |
+| ----------------- | ----------------------------------------------------------- |
+| popup/popup.html  | Main extension popup interface for user interaction         |
+| background.js     | Service worker for background processing and API management |
+| content.js        | Injected script for page-level security analysis            |
+| utils/urlCheck.js | Utility functions for domain and security validation        |
 
 ## 4. API Definitions
 
@@ -59,24 +63,28 @@ graph TD
 ```
 chrome.webNavigation.onCompleted
 ```
+
 Purpose: Monitor page navigation events
 Parameters: Navigation details including URL, tab ID, frame ID
 
 ```
 chrome.tabs.sendMessage
 ```
+
 Purpose: Send security data from background to content script
 Parameters: Tab ID, message object with URL and scan results
 
 ```
 chrome.tabs.query
 ```
+
 Purpose: Get active tab information for manual scans
 Parameters: Query object to identify current active tab
 
 **Internal Message API:**
 
 Background to Content Script Communication:
+
 ```javascript
 {
   type: "URL_SCAN",
@@ -87,6 +95,7 @@ Background to Content Script Communication:
 ```
 
 Content Script Response:
+
 ```javascript
 {
   type: "SCAN_RESULT", 
@@ -174,6 +183,7 @@ erDiagram
 **Chrome Extension Storage Schema:**
 
 Extension State Storage:
+
 ```javascript
 // Extension configuration and state
 const extensionState = {
@@ -188,6 +198,7 @@ chrome.storage.local.set({ extensionState });
 ```
 
 URL Logging Storage:
+
 ```javascript
 // URL visit tracking
 const urlLog = {
@@ -208,6 +219,7 @@ chrome.storage.local.get(['urlHistory'], (result) => {
 ```
 
 Security Scan Results:
+
 ```javascript
 // Security analysis results
 const scanResult = {
@@ -225,6 +237,7 @@ chrome.storage.local.set({ [`scan_${scanResult.id}`]: scanResult });
 ```
 
 User Settings:
+
 ```javascript
 // User preferences and configuration
 const userSettings = {
@@ -238,3 +251,4 @@ const userSettings = {
 // Initialize default settings
 chrome.storage.local.set({ userSettings });
 ```
+
