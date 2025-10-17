@@ -1,59 +1,53 @@
-# UNSCAMMED.AI Chrome Extension - Product Requirements Document
+# UNSCAMMED.AI Chrome Extension – Product Requirements
 
 ## 1. Product Overview
 
-UNSCAMMED.AI is a production-grade Chrome browser extension designed to provide real-time phishing detection and website security analysis. The extension serves as a foundational security layer that monitors user browsing activity and provides instant feedback on potentially malicious websites.
+UNSCAMMED.AI is a prototype Chrome browser extension that demonstrates client-side heuristics for identifying suspicious websites. It monitors the user’s navigation activity, evaluates each page locally, and surfaces warnings when potential phishing characteristics are detected.
 
-The extension targets everyday internet users who need protection from phishing attacks, malicious websites, and online scams. It provides a seamless browsing experience while maintaining robust security monitoring in the background.
+The extension targets privacy-conscious users who want lightweight warnings without sending browsing history to remote services. All scans run locally in the browser, and only a minimal popup UI is provided.
 
 ## 2. Core Features
 
-### 2.1 User Roles
+### 2.1 User Role
 
-| Role | Registration Method | Core Permissions |
-|------|---------------------|------------------|
-| Browser User | Extension installation | Can scan websites, view security status, access popup interface |
+Only one role exists: the **browser user**. Installing the extension grants access to:
 
-### 2.2 Feature Module
+- Automatic background scans on navigation.
+- Manual scans initiated from the popup.
+- Read-only status indicators (total scans, last result).
 
-Our UNSCAMMED.AI extension consists of the following essential pages and components:
+### 2.2 Feature Modules
 
-1. **Popup Interface**: Security status display, manual scan trigger, extension controls
-2. **Background Monitoring**: Automatic URL logging, navigation tracking, security analysis
-3. **Content Integration**: Page-level security scanning, real-time threat detection
-4. **Utility Functions**: Domain analysis, security checks, data processing
+1. **Background monitoring** – captures top-level navigation events, logs URLs, and proxies scan requests between the popup and content script.
+2. **Content analysis** – evaluates the current page using heuristic checks (HTTPS usage, suspicious domains, phishing phrases, brand spoofing, insecure forms, suspicious external links) and renders alerts.
+3. **Popup interface** – displays the active tab URL, most recent threat assessment, and scan counters; exposes the “Scan This Site” action.
+4. **Utility helpers** – reusable URL-inspection functions collected under `utils/urlCheck.js`.
 
-### 2.3 Page Details
+### 2.3 UI and Feedback Details
 
-| Page Name | Module Name | Feature description |
-|-----------|-------------|---------------------|
-| Popup Interface | Security Status Display | Show current website security status with visual indicators and threat level |
-| Popup Interface | Manual Scan Button | Trigger immediate security scan of active tab with one-click action |
-| Popup Interface | Extension Title | Display "🛡️ UNSCAMMED.AI" branding with initialization status |
-| Background Service | URL Logging | Automatically log and track all visited URLs for security analysis |
-| Background Service | Navigation Monitoring | Listen for page navigation events and trigger security checks |
-| Background Service | Message Routing | Send security data between background and content scripts |
-| Content Script | Page Scanner | Analyze current page content and domain for security threats |
-| Content Script | Threat Detection | Identify potential phishing indicators and malicious elements |
-| Content Script | Alert System | Display security warnings and scan results to user |
-| Utility Functions | Domain Analysis | Evaluate domain reputation and security risk factors |
-| Utility Functions | Security Checks | Perform local security validation and threat assessment |
+| Surface | Element | Description |
+|---------|---------|-------------|
+| Popup | Header | Shows "🛡️ UNSCAMMED.AI" and an “Initialized” status light. |
+| Popup | Status card | Displays active tab URL, threat level icon/text, and total scan count sourced from `chrome.storage.local`. |
+| Popup | Scan button | Sends a `MANUAL_SCAN` request for the active tab and updates once the content script replies. |
+| Content script | Automatic alert banner | Appears for 10 seconds on high-risk classifications determined during navigation scans. |
+| Content script | Manual scan toast | Temporarily overlays the result of a manual scan, colour-coded by risk level. |
 
 ## 3. Core Process
 
 **Primary User Flow:**
-1. User installs extension and it initializes automatically
-2. Extension monitors browsing activity in background
-3. When user visits a website, automatic security scan occurs
-4. User can manually trigger additional scans via popup
-5. Extension displays security status and warnings as needed
+1. User installs the extension; default settings and counters are stored in `chrome.storage.local`.
+2. As the user navigates, the background worker logs each main-frame URL and asks the content script to scan it.
+3. The content script evaluates the URL and responds with a threat level (low/medium/high/unknown).
+4. High-risk detections trigger an alert banner on the page.
+5. Scan metadata is persisted for popup reporting.
 
 **Manual Scan Flow:**
-1. User clicks extension icon to open popup
-2. User sees current security status
-3. User clicks "Scan This Site" button
-4. Extension performs immediate security analysis
-5. Results displayed in popup and/or content area
+1. User opens the popup, which queries the active tab and current totals.
+2. User presses **Scan This Site**.
+3. The popup sends a `MANUAL_SCAN` request to the background worker, which forwards it to the content script.
+4. The content script runs enhanced checks (page text, form actions, external links) before returning a result.
+5. The popup updates its status indicators; the content script shows a toast; counters increment in storage.
 
 ```mermaid
 graph TD
@@ -71,22 +65,11 @@ graph TD
 
 ### 4.1 Design Style
 
-- **Primary Color**: Red accent (#c00) for security alerts and branding
-- **Secondary Colors**: Clean whites and grays for neutral interface elements
-- **Button Style**: Minimalistic flat design with subtle hover effects
-- **Font**: System default sans-serif fonts for maximum compatibility
-- **Layout Style**: Clean, compact popup design optimized for browser extension constraints
-- **Icon Style**: Shield-based security iconography with modern flat design
+- **Primary accent**: Red (`#c00`) used for warning states and primary actions.
+- **Supporting colours**: Neutral grays and white backgrounds to keep focus on status indicators.
+- **Typography**: System sans-serif fonts for compatibility and minimal bundle size.
+- **Layout**: Fixed-width popup (≈300 px) with stacked sections; content script overlays use fixed positioning.
 
-### 4.2 Page Design Overview
+### 4.2 Responsiveness
 
-| Page Name | Module Name | UI Elements |
-|-----------|-------------|-------------|
-| Popup Interface | Header Section | Bold red title "🛡️ UNSCAMMED.AI" with shield emoji, clean typography |
-| Popup Interface | Status Display | "Browser Shield Initialized" text with security status indicator |
-| Popup Interface | Action Button | Red-accented "Scan This Site" button with hover effects and click feedback |
-| Popup Interface | Layout Container | Compact 300px width popup with proper padding and spacing |
-
-### 4.3 Responsiveness
-
-The extension is designed as a browser popup with fixed dimensions optimized for desktop Chrome browsers. The interface maintains consistent sizing and layout across different screen resolutions while ensuring readability and usability within the popup constraints.
+The popup is optimized for desktop Chrome. Elements are fixed in place; no mobile breakpoints are required. In-page alerts and toasts use absolute positioning so they remain visible regardless of page layout.
