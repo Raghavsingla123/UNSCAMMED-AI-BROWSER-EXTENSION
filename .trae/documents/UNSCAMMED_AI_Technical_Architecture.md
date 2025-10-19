@@ -1,36 +1,18 @@
-# UNSCAMMED.AI Chrome Extension - Technical Architecture Document
+# UNSCAMMED.AI Chrome Extension – Technical Architecture
 
 ## 1. Architecture Design
 
 ```mermaid
 graph TD
-    A[Chrome Browser] --> B[Extension Popup UI]
-    A --> C[Background Service Worker]
-    A --> D[Content Scripts]
-    
-    C --> E[Chrome APIs]
-    C --> F[Local Storage]
-    C --> D
-    D --> G[Page DOM]
-    
-    H[Utils Module] --> C
-    H --> D
-    
-    subgraph "Extension Components"
-        B
-        C
-        D
-        H
-    end
-    
-    subgraph "Browser APIs"
-        E
-        F
-    end
-    
-    subgraph "Web Page"
-        G
-    end
+    A[User Navigation] -->|webNavigation.onCompleted| B[Background Service Worker]
+    B -->|chrome.tabs.sendMessage| C[Content Script]
+    C -->|SCAN_RESULT| B
+    C -->|DOM Updates| D[Web Page]
+    E[Popup UI] -->|MANUAL_SCAN| B
+    B -->|chrome.storage.local| F[(Local Storage)]
+    C -->|Uses helpers| G[utils/urlCheck.js]
+    E -->|GET_SCAN_STATUS| B
+    E -->|chrome.tabs.query| H[Active Tab]
 ```
 
 ## 2. Technology Description
@@ -78,67 +60,97 @@ Background ➜ Content (`URL_SCAN`):
 Content ➜ Background (`SCAN_RESULT`):
 ```javascript
 {
-  type: "SCAN_RESULT", 
+  type: "SCAN_RESULT",
   url: string,
   isSecure: boolean,
-  threatLevel: "low" | "medium" | "high",
-  details: string
+  threatLevel: "low" | "medium" | "high" | "unknown",
+  details: string,
+  scanTime: number,
+  tabId?: number,
+  scanType?: "manual"
 }
 ```
 
-## 5. Server Architecture Diagram
+Popup ➜ Background (`MANUAL_SCAN`):
+```javascript
+{
+  type: "MANUAL_SCAN",
+  url: string,
+  tabId: number,
+  timestamp: number
+}
+```
+
+Background ➜ Popup (`GET_SCAN_STATUS` response):
+```javascript
+{
+  success: true,
+  state: {
+    isActive: boolean,
+    totalScans: number,
+    version?: string,
+    lastUpdate?: number
+  }
+}
+```
+
+## 5. Runtime Interaction Diagram
 
 ```mermaid
-graph TD
-    A[Popup UI Layer] --> B[Background Service Worker]
-    B --> C[Content Script Layer]
-    C --> D[Utils Processing Layer]
-    D --> E[Chrome Storage Layer]
-    
-    B --> F[Chrome APIs Layer]
-    F --> G[Browser Navigation Events]
-    F --> H[Tab Management]
-    F --> I[Storage Management]
-    
-    subgraph "Extension Architecture"
-        A
-        B
-        C
-        D
-    end
-    
-    subgraph "Browser Platform"
-        E
-        F
-        G
-        H
-        I
-    end
+sequenceDiagram
+    participant User
+    participant Popup
+    participant Background
+    participant Content
+    participant Storage
+
+    User->>Browser: Navigate to site
+    Browser->>Background: webNavigation.onCompleted
+    Background->>Content: URL_SCAN message
+    Content->>Background: SCAN_RESULT
+    Background->>Storage: Persist visit + result
+    User->>Popup: Click extension icon
+    Popup->>Background: GET_SCAN_STATUS
+    Background->>Popup: Extension state + counters
+    User->>Popup: Click "Scan This Site"
+    Popup->>Background: MANUAL_SCAN
+    Background->>Content: MANUAL_SCAN
+    Content->>Background: Enhanced SCAN_RESULT
+    Background->>Storage: Persist manual result + increment counter
+    Background->>Popup: Manual scan response
 ```
 
 ## 6. Data Model
 
-### 6.1 Data Model Definition
+### 6.1 Stored Structures
 
 ```mermaid
 erDiagram
     EXTENSION_STATE {
-        string extensionId PK
         boolean isActive
-        timestamp lastUpdate
         string version
+        number lastUpdate
+        number totalScans
     }
-    
-    URL_LOG {
-        string id PK
+
+    USER_SETTINGS {
+        boolean autoScan
+        string alertLevel
+        boolean logUrls
+        boolean showNotifications
+        number scanTimeout
+    }
+
+    URL_HISTORY {
+        string id
         string url
-        timestamp visitTime
+        number visitTime
         number tabId
         string scanStatus
     }
-    
-    SECURITY_SCAN {
-        string id PK
+
+    SCAN_RESULT {
+        string id
         string url
         string threatLevel
         boolean isSecure
@@ -158,14 +170,25 @@ erDiagram
     EXTENSION_STATE ||--|| USER_SETTINGS : configures
 ```
 
-### 6.2 Storage Keys
+### 6.2 Data Definition Language
 
-- `extensionState`: `{ isActive, version, lastUpdate, totalScans }` – created during installation/startup and updated when scans finish.
-- `userSettings`: `{ autoScan, alertLevel, logUrls, showNotifications, scanTimeout }` – defaults stored on install; not yet exposed in the UI.
-- `urlHistory`: `Array<URL_HISTORY>` – appended for each main-frame navigation, truncated to the most recent 100 records.
-- `scan_<generatedId>`: `SCAN_RESULT` objects persisted per scan (automatic or manual).
+**Chrome Extension Storage Schema:**
 
-Example persistence flow:
+Extension State Storage:
+```javascript
+// Extension configuration and state
+const extensionState = {
+  isActive: true,
+  version: "1.0.0",
+  lastUpdate: Date.now(),
+  totalScans: 0
+};
+
+// Store in chrome.storage.local
+chrome.storage.local.set({ extensionState });
+```
+
+URL Logging Storage:
 ```javascript
 // URL visit tracking
 const urlLog = {
