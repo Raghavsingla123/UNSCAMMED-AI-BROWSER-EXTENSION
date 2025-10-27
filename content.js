@@ -123,54 +123,211 @@ async function handleManualScan(request) {
   return result;
 }
 
-// Perform local security check (placeholder implementation)
+// Perform comprehensive security check using advanced analyzer
 function performLocalSecurityCheck(url) {
-  console.log('🔍 Running local security check for:', url);
-  
+  console.log('🔍 Running comprehensive security check for:', url);
+
   try {
     const urlObj = new URL(url);
     const domain = urlObj.hostname.toLowerCase();
-    
-    // Basic security checks
-    const checks = {
-      hasHttps: urlObj.protocol === 'https:',
-      suspiciousDomain: checkSuspiciousDomain(domain),
-      hasPhishingIndicators: checkPhishingIndicators(domain, url),
-      isKnownSafe: checkKnownSafeDomains(domain)
-    };
-    
-    // Determine threat level
+    const protocol = urlObj.protocol;
+    const pathname = urlObj.pathname;
+
+    // Comprehensive security analysis
+    const protocolCheck = checkProtocolSecurity(protocol);
+    const domainCheck = checkDomainReputation(domain);
+    const phishingCheck = checkPhishingIndicators(domain, pathname, url);
+    const patternCheck = checkSuspiciousPatterns(domain, url);
+    const paramCheck = checkUrlParameters(urlObj.searchParams);
+    const threatCheck = checkKnownThreats(domain);
+
+    // Calculate total threat score
+    let totalScore = 0;
+    totalScore += protocolCheck.score || 0;
+    totalScore += domainCheck.score || 0;
+    totalScore += phishingCheck.score || 0;
+    totalScore += patternCheck.score || 0;
+    totalScore += paramCheck.score || 0;
+    totalScore += threatCheck.score || 0;
+
+    // Determine threat level based on score
     let threatLevel = "low";
     let isSecure = true;
-    let details = "Domain appears safe, no threats detected";
-    
-    if (checks.suspiciousDomain || checks.hasPhishingIndicators) {
+    let details = "Site appears secure - no major threats detected";
+
+    if (totalScore >= 5) {
       threatLevel = "high";
       isSecure = false;
-      details = "Potential phishing or malicious domain detected";
-    } else if (!checks.hasHttps) {
+      details = "Multiple security concerns detected - exercise caution";
+    } else if (totalScore >= 2) {
       threatLevel = "medium";
-      details = "Insecure connection (HTTP), data may be vulnerable";
-    } else if (checks.isKnownSafe) {
-      details = "Verified safe domain";
+      isSecure = true; // Medium threats are warnings, not necessarily insecure
+      details = "Some security concerns detected - verify site authenticity";
+    } else if (domainCheck.isKnownSafe) {
+      details = "Known safe domain - no threats detected";
     }
-    
+
     return {
       isSecure: isSecure,
       threatLevel: threatLevel,
       details: details,
-      checks: checks
+      checks: {
+        protocol: protocolCheck,
+        domain: domainCheck,
+        phishing: phishingCheck,
+        patterns: patternCheck,
+        parameters: paramCheck,
+        threats: threatCheck
+      },
+      score: totalScore
     };
-    
+
   } catch (error) {
     console.error('❌ Security check error:', error);
     return {
       isSecure: false,
       threatLevel: "unknown",
       details: `Security check failed: ${error.message}`,
-      checks: {}
+      checks: {},
+      score: 0
     };
   }
+}
+
+// Check protocol security
+function checkProtocolSecurity(protocol) {
+  const isSecure = protocol === 'https:';
+  return {
+    isSecure: isSecure,
+    protocol: protocol,
+    score: isSecure ? 0 : 2,
+    details: isSecure ? 'Secure HTTPS connection' : 'Insecure HTTP connection'
+  };
+}
+
+// Check domain reputation
+function checkDomainReputation(domain) {
+  const isIP = /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/.test(domain);
+  const isKnownSafe = checkKnownSafeDomains(domain);
+  const isSuspiciousTLD = /\.(tk|ml|ga|cf|bit\.ly)$/.test(domain);
+  const hasExcessiveSubdomains = domain.split('.').length > 4;
+
+  let score = 0;
+
+  if (isIP) score += 3;
+  if (isKnownSafe) score -= 2;
+  if (isSuspiciousTLD) score += 2;
+  if (hasExcessiveSubdomains) score += 1;
+
+  return {
+    isIP: isIP,
+    isKnownSafe: isKnownSafe,
+    isSuspiciousTLD: isSuspiciousTLD,
+    score: Math.max(0, score),
+    details: isKnownSafe ? 'Known safe domain' : (isIP ? 'Uses IP address' : 'Domain checked')
+  };
+}
+
+// Enhanced phishing indicators check
+function checkPhishingIndicators(domain, pathname, fullUrl) {
+  const phishingPatterns = [
+    /paypal.*secure/i, /amazon.*login/i, /google.*verify/i,
+    /microsoft.*account/i, /apple.*id/i, /facebook.*security/i,
+    /bank.*secure/i, /banking.*login/i, /account.*verify/i,
+    /urgent.*action/i, /verify.*immediately/i, /suspended.*account/i
+  ];
+
+  const brandSpoofing = checkBrandSpoofing(domain);
+  const urlLower = fullUrl.toLowerCase();
+
+  let score = 0;
+  const indicators = [];
+
+  phishingPatterns.forEach(pattern => {
+    if (pattern.test(urlLower)) {
+      score += 3;
+      indicators.push('Matches known phishing pattern');
+    }
+  });
+
+  if (brandSpoofing) {
+    score += 3;
+    indicators.push('Potential brand spoofing');
+  }
+
+  return {
+    score: Math.min(score, 5), // Cap at 5
+    hasBrandSpoofing: brandSpoofing,
+    indicators: indicators,
+    details: indicators.length > 0 ? indicators.join(', ') : 'No phishing indicators'
+  };
+}
+
+// Check brand spoofing
+function checkBrandSpoofing(domain) {
+  const brands = ['google', 'paypal', 'amazon', 'microsoft', 'apple', 'facebook', 'bank'];
+  const domainLower = domain.toLowerCase();
+
+  return brands.some(brand => {
+    return domainLower.includes(brand) && !domainLower.endsWith(brand + '.com');
+  });
+}
+
+// Check suspicious patterns
+function checkSuspiciousPatterns(domain, url) {
+  const longDomain = domain.length > 30;
+  const manyHyphens = (domain.match(/-/g) || []).length > 3;
+  const randomString = /[a-z0-9]{15,}/.test(domain);
+  const suspiciousPath = /(admin|login|secure|verify|update|account|billing|payment|confirm)/i.test(url);
+
+  let score = 0;
+  if (longDomain) score += 1;
+  if (manyHyphens) score += 2;
+  if (randomString) score += 2;
+  if (suspiciousPath) score += 1;
+
+  return {
+    score: score,
+    longDomain: longDomain,
+    manyHyphens: manyHyphens,
+    randomString: randomString,
+    suspiciousPath: suspiciousPath,
+    details: score > 0 ? 'Suspicious patterns detected' : 'No suspicious patterns'
+  };
+}
+
+// Check URL parameters
+function checkUrlParameters(searchParams) {
+  const suspiciousParams = ['redirect', 'return', 'continue', 'next', 'url', 'link'];
+  let score = 0;
+
+  for (const [key, value] of searchParams) {
+    if (suspiciousParams.includes(key.toLowerCase())) {
+      score += 1;
+    }
+    if (value.includes('http') || value.includes('https')) {
+      score += 2;
+    }
+  }
+
+  return {
+    score: Math.min(score, 3),
+    paramCount: searchParams.size,
+    details: score > 0 ? 'Suspicious parameters detected' : 'Parameters normal'
+  };
+}
+
+// Check known threats
+function checkKnownThreats(domain) {
+  // Placeholder for known malicious domains
+  const knownMalicious = ['malware-example.com', 'phishing-test.net', 'scam-site.org'];
+  const isMalicious = knownMalicious.includes(domain);
+
+  return {
+    isKnownThreat: isMalicious,
+    score: isMalicious ? 5 : 0,
+    details: isMalicious ? 'Domain flagged as malicious' : 'No known threats'
+  };
 }
 
 // Enhanced security check for manual scans
@@ -209,42 +366,17 @@ function performEnhancedSecurityCheck(url) {
   };
 }
 
-// Check for suspicious domain patterns
-function checkSuspiciousDomain(domain) {
-  const suspiciousPatterns = [
-    /[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/, // IP addresses
-    /[a-z0-9]+-[a-z0-9]+-[a-z0-9]+\.(tk|ml|ga|cf)/, // Suspicious TLDs with hyphens
-    /(secure|login|account|verify|update).*\.(tk|ml|ga|cf|bit\.ly)/, // Phishing keywords
-    /[a-z]{20,}/, // Very long domain names
-  ];
-  
-  return suspiciousPatterns.some(pattern => pattern.test(domain));
-}
-
-// Check for phishing indicators
-function checkPhishingIndicators(domain, url) {
-  const phishingIndicators = [
-    /paypal.*secure/, // Fake PayPal
-    /amazon.*login/, // Fake Amazon
-    /google.*verify/, // Fake Google
-    /microsoft.*account/, // Fake Microsoft
-    /apple.*id/, // Fake Apple ID
-    /bank.*secure/, // Generic bank phishing
-  ];
-  
-  const fullUrl = url.toLowerCase();
-  return phishingIndicators.some(pattern => pattern.test(fullUrl));
-}
-
 // Check against known safe domains
 function checkKnownSafeDomains(domain) {
   const safeDomains = [
     'google.com', 'youtube.com', 'facebook.com', 'amazon.com',
     'microsoft.com', 'apple.com', 'twitter.com', 'linkedin.com',
-    'github.com', 'stackoverflow.com', 'wikipedia.org'
+    'github.com', 'stackoverflow.com', 'wikipedia.org', 'reddit.com',
+    'netflix.com', 'spotify.com', 'dropbox.com', 'zoom.us',
+    'instagram.com', 'whatsapp.com', 'discord.com', 'slack.com'
   ];
-  
-  return safeDomains.some(safeDomain => 
+
+  return safeDomains.some(safeDomain =>
     domain === safeDomain || domain.endsWith('.' + safeDomain)
   );
 }
@@ -289,14 +421,24 @@ function checkFormSecurity() {
 function analyzeExternalLinks() {
   const links = document.querySelectorAll('a[href^="http"]');
   let hasSuspiciousLinks = false;
-  
+
   links.forEach(link => {
-    const href = link.href.toLowerCase();
-    if (checkSuspiciousDomain(new URL(href).hostname)) {
-      hasSuspiciousLinks = true;
+    try {
+      const href = link.href.toLowerCase();
+      const linkDomain = new URL(href).hostname;
+
+      // Check if link domain has suspicious patterns
+      const patternCheck = checkSuspiciousPatterns(linkDomain, href);
+      const phishingCheck = checkPhishingIndicators(linkDomain, '', href);
+
+      if (patternCheck.score > 2 || phishingCheck.score > 2) {
+        hasSuspiciousLinks = true;
+      }
+    } catch (e) {
+      // Ignore invalid URLs
     }
   });
-  
+
   return {
     hasSuspiciousLinks: hasSuspiciousLinks,
     totalExternalLinks: links.length

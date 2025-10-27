@@ -86,31 +86,40 @@ function displayCurrentUrl(url) {
 // Check for recent scan data
 async function checkRecentScanData(url) {
   try {
+    // Show loading state
+    updateSecurityStatus('pending', 'Checking security status...');
+
     // Get recent scan results from storage
     const result = await chrome.storage.local.get(['urlHistory']);
     const urlHistory = result.urlHistory || [];
-    
+
     // Find recent scan for this URL (within last 5 minutes)
     const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-    const recentScan = urlHistory
+    const recentScans = urlHistory
       .filter(entry => entry.url === url && entry.visitTime > fiveMinutesAgo)
-      .sort((a, b) => b.visitTime - a.visitTime)[0];
-    
-    if (recentScan) {
-      // Get scan result details
+      .sort((a, b) => b.visitTime - a.visitTime);
+
+    console.log('🔍 Found', recentScans.length, 'recent scans for this URL');
+
+    // Try to find scan result for the most recent entries
+    for (const recentScan of recentScans) {
       const scanResult = await chrome.storage.local.get([`scan_${recentScan.id}`]);
       const scanData = scanResult[`scan_${recentScan.id}`];
-      
+
       if (scanData) {
         updateSecurityStatus(scanData.threatLevel, scanData.details);
         console.log('📊 Recent scan data found:', scanData);
         return;
       }
     }
-    
-    // No recent scan data, show default status
-    updateSecurityStatus('pending', 'Click to scan this site');
-    
+
+    // No recent scan data found, but URL was recently visited
+    if (recentScans.length > 0) {
+      updateSecurityStatus('pending', 'Scan in progress... Click to scan manually');
+    } else {
+      updateSecurityStatus('pending', 'Click to scan this site');
+    }
+
   } catch (error) {
     console.error('❌ Error checking scan data:', error);
     updateSecurityStatus('unknown', 'Unable to check scan status');

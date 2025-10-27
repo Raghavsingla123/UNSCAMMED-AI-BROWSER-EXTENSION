@@ -43,19 +43,22 @@ chrome.webNavigation.onCompleted.addListener((details) => {
   // Only process main frame navigations (not iframes)
   if (details.frameId === 0) {
     console.log('🌐 Navigation completed:', details.url);
-    
-    // Log the visited URL
-    logVisitedUrl(details.url, details.tabId);
-    
-    // Send URL to content script for scanning
-    sendUrlToContentScript(details.tabId, details.url);
+
+    // Log the visited URL and get the scan ID
+    const scanId = logVisitedUrl(details.url, details.tabId);
+
+    // Send URL to content script for scanning with the same ID
+    sendUrlToContentScript(details.tabId, details.url, scanId);
   }
 });
 
 // Log visited URL to storage
 function logVisitedUrl(url, tabId) {
+  // Generate unique scan ID and return it to ensure consistency
+  // between URL history and scan results storage
+  const scanId = generateId();
   const urlLog = {
-    id: generateId(),
+    id: scanId,
     url: url,
     visitTime: Date.now(),
     tabId: tabId,
@@ -66,23 +69,26 @@ function logVisitedUrl(url, tabId) {
   chrome.storage.local.get(['urlHistory'], (result) => {
     const history = result.urlHistory || [];
     history.push(urlLog);
-    
+
     // Keep only last 100 entries to prevent storage bloat
     if (history.length > 100) {
       history.splice(0, history.length - 100);
     }
-    
+
     chrome.storage.local.set({ urlHistory: history });
-    console.log('📝 URL logged:', url);
+    console.log('📝 URL logged:', url, 'with ID:', scanId);
   });
+
+  return scanId;
 }
 
 // Send URL to content script for security scanning
-function sendUrlToContentScript(tabId, url) {
+function sendUrlToContentScript(tabId, url, scanId) {
   const message = {
     type: "URL_SCAN",
     url: url,
     tabId: tabId,
+    scanId: scanId,
     timestamp: Date.now()
   };
 
@@ -92,26 +98,29 @@ function sendUrlToContentScript(tabId, url) {
       console.log('⚠️ Could not send message to content script:', chrome.runtime.lastError.message);
     } else if (response) {
       console.log('✅ Content script response:', response);
-      handleScanResult(response);
+      handleScanResult(response, scanId);
     }
   });
 }
 
 // Handle scan results from content script
-function handleScanResult(scanResult) {
+function handleScanResult(scanResult, scanId) {
+  // Use provided scanId or generate one for manual scans
+  const resultId = scanId || generateId();
+
   // Store scan result
   const result = {
-    id: generateId(),
+    id: resultId,
     url: scanResult.url,
     isSecure: scanResult.isSecure,
     threatLevel: scanResult.threatLevel,
     details: scanResult.details,
     scanTime: Date.now(),
-    scanType: "automatic"
+    scanType: scanResult.scanType || "automatic"
   };
 
   chrome.storage.local.set({ [`scan_${result.id}`]: result });
-  
+
   // Update total scans counter
   chrome.storage.local.get(['extensionState'], (data) => {
     if (data.extensionState) {
@@ -120,7 +129,7 @@ function handleScanResult(scanResult) {
     }
   });
 
-  console.log('🔍 Scan result stored:', result);
+  console.log('🔍 Scan result stored with ID:', result.id, result);
 }
 
 // Listen for messages from popup
@@ -156,10 +165,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Perform manual security scan
 async function performManualScan(tabId, url) {
   return new Promise((resolve, reject) => {
+    // Generate scan ID for manual scan
+    const scanId = generateId();
+
     const message = {
       type: "MANUAL_SCAN",
       url: url,
       tabId: tabId,
+      scanId: scanId,
       timestamp: Date.now()
     };
 
@@ -167,7 +180,7 @@ async function performManualScan(tabId, url) {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
       } else if (response) {
-        handleScanResult(response);
+        handleScanResult(response, scanId);
         resolve(response);
       } else {
         reject(new Error('No response from content script'));
