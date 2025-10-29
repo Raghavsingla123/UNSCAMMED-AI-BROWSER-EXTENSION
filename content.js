@@ -97,30 +97,82 @@ async function handleUrlScan(request) {
 // Handle manual scan request
 async function handleManualScan(request) {
   console.log('🔍 Processing manual scan for:', request.url);
-  
+
   // Show scanning indicator
   showScanningIndicator();
-  
-  // Perform enhanced security analysis for manual scans
-  const scanResult = performEnhancedSecurityCheck(request.url);
-  
-  // Hide scanning indicator
-  hideScanningIndicator();
-  
-  // Show result to user
-  showScanResult(scanResult);
-  
-  const result = {
-    type: "SCAN_RESULT",
-    url: request.url,
-    isSecure: scanResult.isSecure,
-    threatLevel: scanResult.threatLevel,
-    details: scanResult.details,
-    scanTime: Date.now(),
-    scanType: "manual"
-  };
-  
-  return result;
+
+  try {
+    // Call local API server for Google Web Risk scan
+    const apiUrl = 'http://localhost:3000/scan';
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url: request.url })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API server returned ${response.status}`);
+    }
+
+    const apiResult = await response.json();
+
+    // Hide scanning indicator
+    hideScanningIndicator();
+
+    let scanResult;
+    if (apiResult.success) {
+      // Use Google Web Risk results
+      scanResult = {
+        isSecure: apiResult.isSecure,
+        threatLevel: apiResult.threatLevel,
+        details: apiResult.details + ' (Google Web Risk)',
+        source: 'google-webrisk'
+      };
+    } else {
+      throw new Error(apiResult.error || 'API scan failed');
+    }
+
+    // Show result to user
+    showScanResult(scanResult);
+
+    const result = {
+      type: "SCAN_RESULT",
+      url: request.url,
+      isSecure: scanResult.isSecure,
+      threatLevel: scanResult.threatLevel,
+      details: scanResult.details,
+      scanTime: Date.now(),
+      scanType: "manual"
+    };
+
+    return result;
+
+  } catch (error) {
+    console.warn('⚠️ Google Web Risk API unavailable, falling back to local check:', error.message);
+
+    // Fallback to local security check if API is unavailable
+    const scanResult = performEnhancedSecurityCheck(request.url);
+
+    // Hide scanning indicator
+    hideScanningIndicator();
+
+    // Show result to user
+    showScanResult(scanResult);
+
+    const result = {
+      type: "SCAN_RESULT",
+      url: request.url,
+      isSecure: scanResult.isSecure,
+      threatLevel: scanResult.threatLevel,
+      details: scanResult.details + ' (Local check - API offline)',
+      scanTime: Date.now(),
+      scanType: "manual"
+    };
+
+    return result;
+  }
 }
 
 // Perform comprehensive security check using advanced analyzer

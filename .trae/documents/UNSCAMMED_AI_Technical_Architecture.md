@@ -17,37 +17,42 @@ graph TD
 
 ## 2. Technology Description
 
-- **Language / UI**: Vanilla JavaScript, HTML5, CSS3 (no bundler)
-- **Extension Framework**: Chrome Manifest V3 with a service worker background script
-- **Storage**: `chrome.storage.local` for visit history, scan counters, and results
-- **Messaging**: `chrome.runtime.sendMessage`, `chrome.runtime.onMessage`, and `chrome.tabs.sendMessage`
-- **Navigation Hooks**: `chrome.webNavigation.onCompleted` for top-level page loads
+* **Language / UI**: Vanilla JavaScript, HTML5, CSS3 (no bundler)
+
+* **Extension Framework**: Chrome Manifest V3 with a service worker background script
+
+* **Storage**: `chrome.storage.local` for visit history, scan counters, and results
+
+* **Messaging**: `chrome.runtime.sendMessage`, `chrome.runtime.onMessage`, and `chrome.tabs.sendMessage`
+
+* **Navigation Hooks**: `chrome.webNavigation.onCompleted` for top-level page loads
 
 ## 3. Module Responsibilities
 
-| File | Role |
-|------|------|
-| `manifest.json` | Declares MV3 entry points, permissions (`webNavigation`, `storage`, `activeTab`), and popup assets. |
-| `background.js` | Initializes default state, logs navigation events, forwards scan requests to the content script, stores scan outcomes, and answers popup queries. |
-| `content.js` | Runs heuristic checks (HTTPS usage, suspicious domains, phishing keywords, brand spoofing, DOM form/link/content analysis) and renders banners/toasts. |
-| `popup/` | Presents the active tab status, total scan count, and manual scan button; dispatches popup events via runtime messaging. |
-| `utils/urlCheck.js` | Provides reusable URL inspection helpers (protocol security, domain reputation, phishing indicators) shared by other scripts when bundled. |
+| File                | Role                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `manifest.json`     | Declares MV3 entry points, permissions (`webNavigation`, `storage`, `activeTab`), and popup assets.                                                    |
+| `background.js`     | Initializes default state, logs navigation events, forwards scan requests to the content script, stores scan outcomes, and answers popup queries.      |
+| `content.js`        | Runs heuristic checks (HTTPS usage, suspicious domains, phishing keywords, brand spoofing, DOM form/link/content analysis) and renders banners/toasts. |
+| `popup/`            | Presents the active tab status, total scan count, and manual scan button; dispatches popup events via runtime messaging.                               |
+| `utils/urlCheck.js` | Provides reusable URL inspection helpers (protocol security, domain reputation, phishing indicators) shared by other scripts when bundled.             |
 
 ## 4. Integration Points
 
 ### 4.1 Chrome APIs
 
-| API | Usage |
-|-----|-------|
-| `chrome.webNavigation.onCompleted` | Triggers automatic scans after the main frame finishes loading. |
-| `chrome.tabs.sendMessage` | Sends `URL_SCAN` and `MANUAL_SCAN` requests to the content script and receives responses. |
-| `chrome.runtime.onMessage` | Handles popup requests (`MANUAL_SCAN`, `GET_SCAN_STATUS`) inside the background worker. |
-| `chrome.tabs.query` | Fetches the active tab URL for popup display. |
-| `chrome.storage.local` | Persists extension state (`extensionState`), user settings (`userSettings`), visit history (`urlHistory`), and individual scan documents (`scan_<id>`). |
+| API                                | Usage                                                                                                                                                   |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chrome.webNavigation.onCompleted` | Triggers automatic scans after the main frame finishes loading.                                                                                         |
+| `chrome.tabs.sendMessage`          | Sends `URL_SCAN` and `MANUAL_SCAN` requests to the content script and receives responses.                                                               |
+| `chrome.runtime.onMessage`         | Handles popup requests (`MANUAL_SCAN`, `GET_SCAN_STATUS`) inside the background worker.                                                                 |
+| `chrome.tabs.query`                | Fetches the active tab URL for popup display.                                                                                                           |
+| `chrome.storage.local`             | Persists extension state (`extensionState`), user settings (`userSettings`), visit history (`urlHistory`), and individual scan documents (`scan_<id>`). |
 
 ### 4.2 Message Contracts
 
 Background ➜ Content (`URL_SCAN`):
+
 ```javascript
 {
   type: "URL_SCAN",
@@ -58,6 +63,7 @@ Background ➜ Content (`URL_SCAN`):
 ```
 
 Content ➜ Background (`SCAN_RESULT`):
+
 ```javascript
 {
   type: "SCAN_RESULT",
@@ -72,6 +78,7 @@ Content ➜ Background (`SCAN_RESULT`):
 ```
 
 Popup ➜ Background (`MANUAL_SCAN`):
+
 ```javascript
 {
   type: "MANUAL_SCAN",
@@ -82,6 +89,7 @@ Popup ➜ Background (`MANUAL_SCAN`):
 ```
 
 Background ➜ Popup (`GET_SCAN_STATUS` response):
+
 ```javascript
 {
   success: true,
@@ -175,6 +183,7 @@ erDiagram
 **Chrome Extension Storage Schema:**
 
 Extension State Storage:
+
 ```javascript
 // Extension configuration and state
 const extensionState = {
@@ -189,6 +198,7 @@ chrome.storage.local.set({ extensionState });
 ```
 
 URL Logging Storage:
+
 ```javascript
 // URL visit tracking
 const urlLog = {
