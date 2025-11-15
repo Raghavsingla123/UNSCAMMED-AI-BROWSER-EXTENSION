@@ -1,18 +1,31 @@
 {
   "name": "unscammed-ai-api",
-  "version": "1.0.0",
-  "description": "Local API server for UNSCAMMED.AI Chrome extension - Google Web Risk integration",
+  "version": "2.0.0",
+  "description": "UNSCAMMED.AI Dual-Project API Server - Google Web Risk integration with cost optimization",
   "type": "module",
-  "main": "server.js",
+  "main": "server-dual.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "node utils/webrisk_poc.mjs https://google.com"
+    "start": "node -r dotenv/config server-dual.js",
+    "start:single": "node server.js",
+    "test": "node -r dotenv/config scripts/test-dual-projects.js",
+    "test:poc": "node utils/webrisk_poc.mjs https://google.com",
+    "setup": "./setup-dual-projects.sh",
+    "check:billing": "./scripts/check-billing.sh",
+    "report:monthly": "node scripts/monthly-report.js"
   },
-  "keywords": ["security", "phishing", "web-risk", "chrome-extension"],
+  "keywords": [
+    "security",
+    "phishing",
+    "web-risk",
+    "chrome-extension",
+    "google-cloud",
+    "cost-optimization"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.18.2"
   }
 }

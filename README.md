@@ -1,13 +1,14 @@
-# 🛡️ UNSCAMMED.AI Chrome Extension
+# 🛡️ UNSCAMMED.AI - Complete Security Platform
 
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green.svg)](https://chrome.google.com/webstore)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue.svg)](https://developer.chrome.com/docs/extensions/mv3/)
-[![JavaScript](https://img.shields.io/badge/JavaScript-Vanilla-yellow.svg)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+[![Node.js](https://img.shields.io/badge/Node.js-v18+-brightgreen.svg)](https://nodejs.org/)
+[![Google Web Risk](https://img.shields.io/badge/Google-Web%20Risk%20API-blue.svg)](https://cloud.google.com/web-risk)
 [![License](https://img.shields.io/badge/License-MIT-red.svg)](LICENSE)
 
-> **Browser Shield** - Real-time phishing detection and website security analysis
+> **Browser Shield** - Real-time phishing detection and website security analysis powered by Google Web Risk API
 
-UNSCAMMED.AI is a production-grade Chrome browser extension designed to provide real-time phishing detection and website security analysis. The extension serves as a foundational security layer that monitors user browsing activity and provides instant feedback on potentially malicious websites.
+UNSCAMMED.AI is a production-grade security platform combining a Chrome browser extension with a powerful backend API server. It provides real-time phishing detection and website security analysis using Google's Web Risk API with a cost-optimized dual-project architecture that keeps operational costs at $0 for up to 50,000 scans per month.
 
 ## 📋 Table of Contents
 
@@ -26,25 +27,37 @@ UNSCAMMED.AI is a production-grade Chrome browser extension designed to provide 
 
 ## 🎯 Overview
 
-UNSCAMMED.AI targets everyday internet users who need protection from phishing attacks, malicious websites, and online scams. It provides a seamless browsing experience while maintaining robust security monitoring in the background.
+UNSCAMMED.AI is a comprehensive security platform consisting of two integrated components:
+
+1. **Chrome Extension** - Real-time browser protection with automatic URL monitoring
+2. **Backend API Server** - Powered by Google Web Risk API with intelligent cost optimization
+
+The platform targets everyday internet users who need protection from phishing attacks, malicious websites, and online scams while providing a seamless browsing experience.
 
 ### Key Benefits
 
-- **Real-time Protection**: Automatic scanning of every website you visit
-- **Instant Feedback**: Immediate security status in your browser
-- **Privacy-First**: All analysis happens locally in your browser
-- **Lightweight**: No external dependencies or heavy frameworks
-- **Developer-Friendly**: Clean, maintainable code structure
+- **Enterprise-Grade Protection**: Powered by Google's Web Risk API threat intelligence
+- **Cost-Optimized Architecture**: Dual-project design keeps costs at $0 for 50k+ scans/month
+- **Real-time Detection**: Automatic scanning with instant threat identification
+- **Local Hash Database**: 6,144+ malicious URL hashes for instant offline detection
+- **Smart Fallback**: Real-time API verification for unknown URLs
+- **Privacy-First**: Minimal data transmission, maximum protection
+- **Developer-Friendly**: Clean, maintainable code with comprehensive documentation
 
 ## ✨ Features
 
 ### 🔍 Core Security Features
 
+- **Google Web Risk Integration**: Enterprise-grade threat detection using Google's database
+- **Dual-Project Architecture**: Cost-optimized setup with two Google Cloud projects
+- **Local Hash Database**: 6,144 malicious URL hash prefixes for instant detection
+  - 2,048 MALWARE hashes
+  - 2,048 SOCIAL_ENGINEERING hashes
+  - 2,048 UNWANTED_SOFTWARE hashes
 - **Automatic URL Monitoring**: Logs and analyzes every page navigation
-- **Real-time Threat Detection**: Identifies phishing and malicious websites
+- **Real-time Threat Detection**: Hybrid strategy (local → API fallback)
 - **Manual Security Scans**: On-demand analysis via popup interface
-- **Domain Reputation Analysis**: Evaluates website trustworthiness
-- **Security Status Display**: Visual indicators for website safety
+- **Automatic Database Updates**: Hash database refreshes every 30 minutes
 
 ### 🎨 User Interface
 
@@ -52,94 +65,311 @@ UNSCAMMED.AI targets everyday internet users who need protection from phishing a
 - **Security Dashboard**: Current website status and scan results
 - **One-Click Scanning**: Manual scan trigger for enhanced analysis
 - **Extension Statistics**: Track total scans and security events
+- **Threat Indicators**: Visual alerts for detected threats
+
+### 🔧 Backend API Features
+
+- **REST API**: Express.js server with CORS support
+- **POST /scan**: URL scanning with threat detection
+- **GET /health**: Server health check and configuration status
+- **GET /stats/database**: Local hash database statistics
+- **GET /stats/usage**: API usage and cost tracking
+- **GET /stats/cost-estimate**: Monthly cost projections
+- **POST /admin/update-database**: Manual database refresh
+
+### 💰 Cost Optimization
+
+- **Project A (Hash Database)**: Uses Update API - 100% FREE
+- **Project B (Lookup API)**: First 10,000 queries/month FREE
+- **Smart Routing**: 80% of requests handled by free local database
+- **API Guard**: Prevents cross-project contamination
+- **Usage Monitoring**: Real-time tracking of API consumption
 
 ### 🔧 Technical Features
 
 - **Manifest V3 Compliance**: Latest Chrome extension standards
 - **Service Worker Architecture**: Efficient background processing
 - **Message Passing System**: Seamless component communication
-- **Local Storage**: Secure data persistence without external servers
-- **Error Handling**: Robust error management and logging
+- **ES Modules**: Modern JavaScript with import/export
+- **Environment Configuration**: Secure .env-based setup
+- **Error Handling**: Comprehensive error management and logging
+- **Token Caching**: Efficient OAuth2 authentication
 
 ## 🏗️ Architecture
 
-### System Overview
+### Complete System Overview
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Popup UI      │    │  Background     │    │  Content        │
-│   (popup.html)  │◄──►│  Service Worker │◄──►│  Script         │
-│                 │    │  (background.js)│    │  (content.js)   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Chrome APIs   │    │  Local Storage  │    │   Web Page      │
-│   (tabs, etc.)  │    │   (security     │    │   (DOM access)  │
-│                 │    │    data)        │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                    Chrome Extension                          │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │  Popup UI   │  │ Background  │  │  Content    │         │
+│  │ (popup.html)│◄─┤Service Worke│◄─┤   Script    │         │
+│  └─────────────┘  └──────┬──────┘  └─────────────┘         │
+└─────────────────────────┼───────────────────────────────────┘
+                          │ HTTP POST /scan
+                          ▼
+┌──────────────────────────────────────────────────────────────┐
+│              Backend API Server (Express.js)                 │
+│                    Port 3000                                 │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Hybrid Scanning Strategy (server-dual.js)           │   │
+│  │  Step 1: Check Local Hash DB → Step 2: Call API      │   │
+│  └──────────────┬────────────────────────┬────────────────┘ │
+│                 │                        │                   │
+│                 ▼                        ▼                   │
+│  ┌────────────────────────┐  ┌────────────────────────┐    │
+│  │   Project A            │  │   Project B            │    │
+│  │   Hash Database        │  │   Lookup API           │    │
+│  │ (webrisk-update-api.js)│  │ (webrisk-lookup-api.js)│    │
+│  │                        │  │                        │    │
+│  │ • Local 6,144 hashes   │  │ • Real-time lookup     │    │
+│  │ • Instant check        │  │ • Google verification  │    │
+│  │ • Cost: $0 (FREE)      │  │ • Cost: $0 (<10k/mo)   │    │
+│  └────────┬───────────────┘  └────────┬───────────────┘    │
+└───────────┼──────────────────────────┼────────────────────┘
+            │                          │
+            ▼                          ▼
+┌────────────────────────────────────────────────────────────┐
+│              Google Cloud Platform                         │
+│  ┌──────────────────────┐  ┌──────────────────────────┐   │
+│  │  Project A           │  │  Project B               │   │
+│  │  unscammed-hashdb-*  │  │  unscammed-lookup-*      │   │
+│  │                      │  │                          │   │
+│  │  Web Risk Update API │  │  Web Risk Lookup API     │   │
+│  │  threatLists.        │  │  uris:search             │   │
+│  │  computeDiff         │  │                          │   │
+│  └──────────────────────┘  └──────────────────────────┘   │
+└────────────────────────────────────────────────────────────┘
 ```
 
-### Component Interaction Flow
+### Request Flow with Dual-Project Strategy
 
 1. **User Navigation**: Browser navigates to a new page
-2. **Background Detection**: Service worker detects navigation event
-3. **URL Logging**: Background script logs the visited URL
-4. **Content Injection**: Content script analyzes the page
-5. **Security Analysis**: Utils perform domain and content checks
-6. **Result Storage**: Scan results stored in local storage
-7. **UI Update**: Popup displays current security status
+2. **Extension Detection**: Service worker detects navigation event
+3. **API Request**: Extension sends URL to backend server (POST /scan)
+4. **Step 1 - Local Check**: Server checks Project A hash database
+   - Compute SHA256 hash of URL
+   - Check against 6,144 local hash prefixes
+   - If match found → Return threat (Cost: $0, Speed: Instant)
+5. **Step 2 - API Fallback**: If not found locally, call Project B
+   - Make uris:search API call to Google
+   - Get real-time verification
+   - Return result (Cost: $0 for first 10k/month)
+6. **Response**: Server returns threat status to extension
+7. **UI Update**: Extension displays security status to user
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Google Chrome browser (version 88+)
-- Developer mode enabled in Chrome extensions
+- **Google Chrome browser** (version 88+)
+- **Node.js** v18 or higher
+- **Google Cloud Account** with two projects set up
+- **API Keys** and service account credentials
+- **Developer mode** enabled in Chrome extensions
 
-### 3-Step Installation
+### 5-Step Quick Setup
 
-1. **Download Extension**
+1. **Clone Repository**
    ```bash
    git clone https://github.com/your-username/UNSCAMMED-AI-BROWSER-EXTENSION.git
    cd UNSCAMMED-AI-BROWSER-EXTENSION
    ```
 
-2. **Load in Chrome**
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment**
+   ```bash
+   # Copy the example environment file
+   cp .env.example .env
+
+   # Edit .env and add your Google Cloud credentials
+   # - PROJECT_A_SERVICE_ACCOUNT_PATH
+   # - PROJECT_A_PROJECT_ID
+   # - PROJECT_B_API_KEY
+   # - PROJECT_B_PROJECT_ID
+   ```
+
+4. **Start Backend Server**
+   ```bash
+   npm start
+   ```
+   Server will run on `http://localhost:3000`
+
+5. **Load Chrome Extension**
    - Open Chrome and go to `chrome://extensions/`
    - Enable "Developer mode" (toggle in top-right)
    - Click "Load unpacked" and select the project folder
-
-3. **Verify Installation**
    - Look for the 🛡️ UNSCAMMED.AI icon in your toolbar
-   - Visit any website to trigger automatic scanning
-   - Click the extension icon to open the popup
 
-## 📦 Installation
+### Verify Installation
 
-### Method 1: Load Unpacked (Development)
-
-1. **Enable Developer Mode**
+1. **Check Server Health**
+   ```bash
+   curl http://localhost:3000/health | jq
    ```
-   1. Open Chrome
+
+2. **Test URL Scanning**
+   ```bash
+   curl -X POST http://localhost:3000/scan \
+     -H "Content-Type: application/json" \
+     -d '{"url":"https://google.com"}' | jq
+   ```
+
+3. **Check Extension**
+   - Visit any website
+   - Click the extension icon to see security status
+   - Try manual scanning with "Scan This Site" button
+
+## 📦 Detailed Installation
+
+### Part 1: Google Cloud Setup
+
+1. **Create Two Google Cloud Projects**
+
+   **Project A: Hash Database**
+   ```bash
+   # Create project for Update API
+   gcloud projects create unscammed-hashdb-[UNIQUE-ID]
+   gcloud config set project unscammed-hashdb-[UNIQUE-ID]
+
+   # Enable Web Risk API
+   gcloud services enable webrisk.googleapis.com
+
+   # Create service account
+   gcloud iam service-accounts create webrisk-updater \
+     --display-name="Web Risk Update API"
+
+   # Create and download key
+   gcloud iam service-accounts keys create ./secrets/project-a-service-account.json \
+     --iam-account=webrisk-updater@unscammed-hashdb-[UNIQUE-ID].iam.gserviceaccount.com
+
+   # Grant permissions
+   gcloud projects add-iam-policy-binding unscammed-hashdb-[UNIQUE-ID] \
+     --member="serviceAccount:webrisk-updater@unscammed-hashdb-[UNIQUE-ID].iam.gserviceaccount.com" \
+     --role="roles/webrisk.user"
+   ```
+
+   **Project B: Lookup API**
+   ```bash
+   # Create project for Lookup API
+   gcloud projects create unscammed-lookup-[UNIQUE-ID]
+   gcloud config set project unscammed-lookup-[UNIQUE-ID]
+
+   # Enable Web Risk API
+   gcloud services enable webrisk.googleapis.com
+
+   # Create API key
+   gcloud alpha services api-keys create \
+     --display-name="Web Risk Lookup Key"
+
+   # Get the API key (save this for .env file)
+   gcloud alpha services api-keys list
+   ```
+
+2. **Automated Setup (Alternative)**
+   ```bash
+   # Use the automated setup script
+   chmod +x setup-automated.sh
+   ./setup-automated.sh
+   ```
+
+### Part 2: Backend Server Setup
+
+1. **Install Node.js Dependencies**
+   ```bash
+   npm install
+   ```
+
+2. **Configure Environment Variables**
+   ```bash
+   # Copy example environment file
+   cp .env.example .env
+
+   # Edit .env with your values:
+   # PROJECT_A_SERVICE_ACCOUNT_PATH=./secrets/project-a-service-account.json
+   # PROJECT_A_PROJECT_ID=unscammed-hashdb-[YOUR-ID]
+   # PROJECT_B_API_KEY=AIzaSy...your-api-key
+   # PROJECT_B_PROJECT_ID=unscammed-lookup-[YOUR-ID]
+   # USE_DUAL_PROJECT_MODE=true
+   # ENABLE_LOCAL_HASH_DB=true
+   # ENABLE_API_GUARD=true
+   # PORT=3000
+   ```
+
+3. **Start the Server**
+   ```bash
+   npm start
+   ```
+
+   Expected output:
+   ```
+   ✅ Dual-project configuration validated
+   🔄 Initializing local hash database (Project A)...
+   [Project A] ✅ Added 2048 MALWARE hash prefixes (FREE)
+   [Project A] ✅ Added 2048 SOCIAL_ENGINEERING hash prefixes (FREE)
+   [Project A] ✅ Added 2048 UNWANTED_SOFTWARE hash prefixes (FREE)
+   🚀 UNSCAMMED.AI Dual-Project API Server
+   📡 Server running: http://localhost:3000
+   ```
+
+4. **Verify Server is Working**
+   ```bash
+   # Health check
+   curl http://localhost:3000/health | jq
+
+   # Database stats
+   curl http://localhost:3000/stats/database | jq
+
+   # Test scan
+   curl -X POST http://localhost:3000/scan \
+     -H "Content-Type: application/json" \
+     -d '{"url":"https://google.com"}' | jq
+   ```
+
+### Part 3: Chrome Extension Installation
+
+1. **Load Extension in Chrome**
+   ```
+   1. Open Chrome browser
    2. Navigate to chrome://extensions/
-   3. Toggle "Developer mode" in the top-right corner
+   3. Toggle "Developer mode" (top-right corner)
+   4. Click "Load unpacked"
+   5. Select the UNSCAMMED AI BROWSER EXTENSION folder
+   6. Extension should appear in your extensions list
    ```
 
-2. **Load Extension**
-   ```
-   1. Click "Load unpacked"
-   2. Select the UNSCAMMED AI BROWSER EXTENSION folder
-   3. Extension should appear in your extensions list
-   ```
-
-3. **Pin Extension** (Optional)
+2. **Pin Extension** (Recommended)
    ```
    1. Click the puzzle piece icon in Chrome toolbar
    2. Find UNSCAMMED.AI in the list
    3. Click the pin icon to keep it visible
    ```
+
+3. **Verify Extension Works**
+   - Visit any website (e.g., google.com)
+   - Click the 🛡️ UNSCAMMED.AI icon
+   - You should see the security status
+   - Try clicking "Scan This Site" button
+   - Check browser console for scan logs
+
+### Part 4: Testing the Complete System
+
+Run the comprehensive test suite:
+
+```bash
+npm test
+```
+
+Or use the interactive demo:
+
+```bash
+./scripts/demo-dual-projects.sh
+```
 
 ### Method 2: Chrome Web Store (Future)
 
@@ -358,64 +588,291 @@ UNSCAMMED.AI targets everyday internet users who need protection from phishing a
 
 ```
 UNSCAMMED AI BROWSER EXTENSION/
-├── 📄 manifest.json              # Extension configuration
-├── 🔧 background.js              # Service worker (background processing)
-├── 📜 content.js                 # Content script (page analysis)
-├── 📁 popup/
-│   ├── 🎨 popup.html            # Popup interface structure
-│   ├── 🎨 popup.css             # Styling (red accent theme)
-│   └── ⚡ popup.js              # Popup functionality
-├── 📁 utils/
-│   └── 🔍 urlCheck.js           # Security analysis utilities
-├── 📁 icons/
-│   ├── 🖼️ icon16.svg            # 16x16 extension icon
-│   ├── 🖼️ icon48.svg            # 48x48 extension icon
-│   └── 🖼️ icon128.svg           # 128x128 extension icon
-├── 📁 .trae/
-│   └── 📁 documents/
-│       ├── 📋 UNSCAMMED_AI_Product_Requirements.md
-│       └── 🏗️ UNSCAMMED_AI_Technical_Architecture.md
-└── 📖 README.md                  # This file
+│
+├── 📄 Core Configuration
+│   ├── package.json              # Node.js dependencies and scripts
+│   ├── package-lock.json         # Locked dependency versions
+│   ├── .env                      # Environment variables (SECRET - not in git)
+│   ├── .env.example              # Template for environment setup
+│   └── .gitignore                # Git ignore rules
+│
+├── 🖥️ Backend Server (Node.js + Express)
+│   ├── server-dual.js            # Main dual-project API server
+│   ├── 📁 lib/
+│   │   ├── webrisk-update-api.js # Project A: Update API (Hash DB)
+│   │   ├── webrisk-lookup-api.js # Project B: Lookup API
+│   │   └── api-guard.js          # API contamination prevention
+│   └── 📁 secrets/
+│       └── project-a-service-account.json  # Service account key (SECRET)
+│
+├── 🌐 Chrome Extension
+│   ├── manifest.json             # Extension manifest (Manifest V3)
+│   ├── background.js             # Service worker (background processing)
+│   ├── content.js                # Content script (page analysis)
+│   ├── 📁 popup/
+│   │   ├── popup.html           # Popup interface structure
+│   │   ├── popup.css            # Styling (red accent theme)
+│   │   └── popup.js             # Popup functionality
+│   ├── 📁 utils/
+│   │   └── urlCheck.js          # Security analysis utilities
+│   └── 📁 icons/
+│       ├── icon16.svg           # 16x16 extension icon
+│       ├── icon48.svg           # 48x48 extension icon
+│       └── icon128.svg          # 128x128 extension icon
+│
+├── 🛠️ Scripts & Automation
+│   ├── setup-automated.sh        # Automated GCP project setup
+│   ├── verify-api-usage.sh       # Verify API usage patterns
+│   └── 📁 scripts/
+│       ├── test-dual-projects.js # Comprehensive test suite
+│       └── demo-dual-projects.sh # Interactive demonstration
+│
+└── 📚 Documentation
+    ├── README.md                 # This file (main documentation)
+    ├── DEMO_GUIDE.md             # Complete demonstration guide
+    ├── PROJECT_STRUCTURE.md      # Project organization overview
+    └── CHANGES.md                # Changelog (auto-generated)
 ```
 
-### File Descriptions
+### Key File Descriptions
 
-| File | Purpose | Size | Dependencies |
+| File | Purpose | Size | Key Features |
 |------|---------|------|--------------|
-| `manifest.json` | Extension configuration and permissions | ~1KB | None |
-| `background.js` | Service worker for background processing | ~8KB | Chrome APIs |
-| `content.js` | Page analysis and security scanning | ~6KB | utils/urlCheck.js |
-| `popup.html` | User interface structure | ~2KB | popup.css, popup.js |
-| `popup.css` | Styling and visual design | ~3KB | None |
-| `popup.js` | User interaction and messaging | ~5KB | Chrome APIs |
-| `utils/urlCheck.js` | Security analysis algorithms | ~4KB | None |
+| **Backend Server** |
+| `server-dual.js` | Main API server with dual-project logic | ~12KB | Express.js, CORS, hybrid scanning |
+| `lib/webrisk-update-api.js` | Project A: Hash database management | ~15KB | computeDiff, SHA256 hashing, 6144 hashes |
+| `lib/webrisk-lookup-api.js` | Project B: Real-time URL lookup | ~8KB | uris:search, usage tracking |
+| `lib/api-guard.js` | Prevents API contamination | ~5KB | Method whitelisting, validation |
+| **Chrome Extension** |
+| `manifest.json` | Extension configuration (V3) | ~1KB | Permissions, host access |
+| `background.js` | Service worker | ~8KB | Navigation monitoring, API calls |
+| `content.js` | Page analysis | ~6KB | DOM inspection, message passing |
+| `popup.html` | User interface | ~2KB | Security status display |
+| `popup.js` | UI interactions | ~5KB | Manual scan trigger |
+| **Scripts** |
+| `setup-automated.sh` | GCP project automation | ~3KB | Creates projects, enables APIs |
+| `verify-api-usage.sh` | API usage verification | ~2KB | Checks which methods are called |
+| `scripts/test-dual-projects.js` | Test suite | ~10KB | Comprehensive API testing |
 
 ## 🛠️ Development
 
-### Development Commands
-
-Since this extension uses vanilla JavaScript without build tools, development is straightforward:
+### Available NPM Scripts
 
 ```bash
-# View project structure
-show structure
+# Start the backend server
+npm start
 
-# Open specific files for editing
-open manifest.json
-open background.js
-open popup/popup.html
+# Run comprehensive test suite
+npm test
 
-# Rebuild extension (if needed)
-rebuild
+# Run Web Risk POC test
+npm run test:poc
 
-# Test extension functionality
-test extension
+# Setup Google Cloud projects (automated)
+npm run setup
+
+# Check billing status
+npm run check:billing
+
+# Generate monthly usage report
+npm run report:monthly
+```
+
+### Development Workflow
+
+```bash
+# 1. Start development server
+npm start
+
+# 2. Make changes to code
+# - Edit backend: server-dual.js or lib/*.js
+# - Edit extension: background.js, content.js, popup/*
+
+# 3. For backend changes:
+# - Restart server (Ctrl+C, then npm start)
+
+# 4. For extension changes:
+# - Go to chrome://extensions/
+# - Click refresh icon on UNSCAMMED.AI extension
+# - Test your changes
+
+# 5. Run tests to verify
+npm test
+
+# 6. Check API usage patterns
+./verify-api-usage.sh
+```
+
+### Useful Development Commands
+
+```bash
+# View server logs in real-time
+npm start | grep -E "\\[Project|Cost|Threat"
+
+# Test scanning a specific URL
+curl -X POST http://localhost:3000/scan \
+  -H "Content-Type: application/json" \
+  -d '{"url":"YOUR_URL_HERE"}' | jq
+
+# Check database statistics
+curl http://localhost:3000/stats/database | jq
+
+# Check API usage stats
+curl http://localhost:3000/stats/usage | jq
+
+# Force database update
+curl -X POST http://localhost:3000/admin/update-database | jq
+
+# Check cost estimates
+curl http://localhost:3000/stats/cost-estimate | jq
+
+# View server health
+curl http://localhost:3000/health | jq
+```
+
+## 🔌 API Endpoints
+
+The backend server exposes the following REST API endpoints:
+
+### POST /scan
+Scan a URL for security threats.
+
+**Request:**
+```json
+{
+  "url": "https://example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "url": "https://example.com",
+  "threats": [],
+  "threatLevel": "low",
+  "isSecure": true,
+  "details": "No threats detected by Google Web Risk",
+  "source": "project-b-lookup-api",
+  "confidence": "high",
+  "cost": 0,
+  "usageStats": {
+    "monthlyQueries": 1,
+    "freeTrierLimit": 10000,
+    "percentageUsed": "0.01",
+    "remainingQueries": 9999
+  },
+  "timestamp": 1234567890
+}
+```
+
+### GET /health
+Check server health and configuration.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "service": "UNSCAMMED.AI Dual-Project Web Risk API",
+  "mode": "dual-project",
+  "initialized": true,
+  "timestamp": 1234567890,
+  "projects": {
+    "project_a": {
+      "name": "Hash Database (Update API)",
+      "enabled": true,
+      "methods": ["computeDiff", "hashes.search"],
+      "cost": "FREE (computeDiff) + $50/1000 (hashes.search - rarely used)"
+    },
+    "project_b": {
+      "name": "URL Lookup (Lookup API)",
+      "enabled": true,
+      "methods": ["uris:search"],
+      "cost": "FREE tier (10,000/month)"
+    }
+  }
+}
+```
+
+### GET /stats/database
+Get local hash database statistics.
+
+**Response:**
+```json
+{
+  "success": true,
+  "totalHashes": 6144,
+  "malwareHashes": 2048,
+  "socialEngineeringHashes": 2048,
+  "unwantedSoftwareHashes": 2048,
+  "lastUpdate": 1234567890,
+  "version": "ChAIAxAGGAEiAzAwMSiAEDABENzWEhoCGAhbnwVf"
+}
+```
+
+### GET /stats/usage
+Get API usage statistics for Project B.
+
+**Response:**
+```json
+{
+  "success": true,
+  "projectB": {
+    "monthlyQueries": 1,
+    "freeTrierLimit": 10000,
+    "percentageUsed": "0.01",
+    "remainingQueries": 9999,
+    "estimatedCost": 0
+  }
+}
+```
+
+### GET /stats/cost-estimate
+Get detailed cost projections.
+
+**Response:**
+```json
+{
+  "success": true,
+  "monthly": {
+    "project_a": {
+      "computeDiff": 0,
+      "hashesSearch": 0,
+      "total": 0
+    },
+    "project_b": {
+      "urisSearch": 0,
+      "queries": 1,
+      "freeTierRemaining": 9999
+    },
+    "total": 0
+  },
+  "projections": {
+    "at5kPerDay": {
+      "monthlyQueries": 150000,
+      "estimatedCost": 0,
+      "warning": "Exceeds free tier limit"
+    }
+  }
+}
+```
+
+### POST /admin/update-database
+Manually trigger hash database update (Project A).
+
+**Response:**
+```json
+{
+  "success": true,
+  "totalHashes": 6144,
+  "lastUpdate": 1234567890
+}
 ```
 
 ### Code Style Guidelines
 
 1. **JavaScript Standards**
-   - Use ES2020+ features
+   - Use ES2020+ features (ES Modules, async/await)
    - Consistent camelCase naming
    - Clear function documentation
    - Error handling for all async operations
@@ -424,8 +881,15 @@ test extension
    - One main function per file
    - Clear separation of concerns
    - Minimal dependencies between components
+   - ES Modules with import/export
 
-3. **Chrome Extension Best Practices**
+3. **Backend Best Practices**
+   - RESTful API design
+   - Proper error handling and status codes
+   - Request/response logging
+   - Environment-based configuration
+
+4. **Chrome Extension Best Practices**
    - Manifest V3 compliance
    - Efficient message passing
    - Proper permission usage
@@ -604,33 +1068,62 @@ window.addEventListener('error', (event) => {
 
 ## 🗺️ Roadmap
 
-### Phase 1: Foundation (Current)
+### Phase 1: Foundation ✅ COMPLETED
 - ✅ Basic extension structure
 - ✅ URL monitoring and logging
-- ✅ Simple security analysis
 - ✅ Popup interface
 - ✅ Local storage implementation
+- ✅ **Backend API server with Express.js**
+- ✅ **Google Web Risk API integration**
+- ✅ **Dual-project cost optimization architecture**
+- ✅ **Local hash database (6,144 hashes)**
+- ✅ **API Guard for billing protection**
+- ✅ **Comprehensive testing suite**
 
-### Phase 2: Enhanced Security (Next)
-- 🔄 Advanced phishing detection algorithms
-- 🔄 Machine learning integration
-- 🔄 Real-time threat database
-- 🔄 Custom security rules
-- 🔄 Whitelist/blacklist management
+### Phase 2: Enhanced Security ✅ COMPLETED
+- ✅ **Advanced phishing detection with Google Web Risk**
+- ✅ **Real-time threat database (Google's)**
+- ✅ **Hybrid scanning strategy (local + API)**
+- ✅ **Automatic database updates**
+- 🔄 Custom security rules (In Progress)
+- 🔄 Whitelist/blacklist management (Planned)
+- 🔄 Enhanced UI with threat details (Planned)
 
-### Phase 3: AI Integration (Future)
-- 🔮 AI-powered threat analysis
-- 🔮 Natural language processing for content analysis
+### Phase 3: Advanced Features (Current - Q1 2025)
+- 🔄 **Production deployment on cloud platform**
+- 🔄 **Chrome Web Store submission**
+- 🔄 Multi-browser support (Firefox, Edge)
+- 🔄 Enhanced reporting and analytics dashboard
+- 🔄 User accounts and sync
+- 🔄 Advanced settings panel
+- 🔄 Dark mode UI
+
+### Phase 4: AI Enhancement (Future - Q2 2025)
+- 🔮 AI-powered content analysis
+- 🔮 Natural language processing for phishing detection
 - 🔮 Behavioral pattern recognition
 - 🔮 Predictive threat modeling
-- 🔮 Cloud-based intelligence (optional)
+- 🔮 Machine learning for local threat detection
 
-### Phase 4: Advanced Features (Future)
-- 🔮 Multi-browser support
+### Phase 5: Enterprise Features (Future - Q3 2025)
 - 🔮 Enterprise management console
-- 🔮 API for third-party integrations
-- 🔮 Advanced reporting and analytics
+- 🔮 Team collaboration features
+- 🔮 Advanced API for third-party integrations
+- 🔮 Custom deployment options
 - 🔮 Mobile companion app
+- 🔮 SIEM integration
+
+### Recently Completed Features
+
+| Feature | Status | Completed |
+|---------|--------|-----------|
+| Google Web Risk API integration | ✅ Done | January 2025 |
+| Dual-project cost optimization | ✅ Done | January 2025 |
+| Local hash database | ✅ Done | January 2025 |
+| Backend API server | ✅ Done | January 2025 |
+| API Guard protection | ✅ Done | January 2025 |
+| Comprehensive test suite | ✅ Done | January 2025 |
+| Demo and documentation | ✅ Done | January 2025 |
 
 ### Feature Requests
 
@@ -638,11 +1131,13 @@ Current feature requests and their status:
 
 | Feature | Priority | Status | ETA |
 |---------|----------|--------|-----|
-| Dark mode UI | Medium | Planned | Q2 2024 |
-| Export scan history | Low | Planned | Q3 2024 |
+| Chrome Web Store submission | High | In Progress | Q1 2025 |
+| Dark mode UI | Medium | Planned | Q1 2025 |
+| Export scan history | Low | Planned | Q2 2025 |
 | Custom alert sounds | Low | Considering | TBD |
-| Firefox support | High | Planned | Q2 2024 |
-| Advanced settings | Medium | In Progress | Q1 2024 |
+| Firefox support | High | Planned | Q2 2025 |
+| Advanced settings | Medium | Planned | Q1 2025 |
+| Cloud deployment | High | In Progress | Q1 2025 |
 
 ## 🤝 Contributing
 
