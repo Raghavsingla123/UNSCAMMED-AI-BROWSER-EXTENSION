@@ -107,7 +107,19 @@ async function checkRecentScanData(url) {
       const scanData = scanResult[`scan_${recentScan.id}`];
 
       if (scanData) {
-        updateSecurityStatus(scanData.threatLevel, scanData.details);
+        // Check if we have new risk scoring data
+        if (scanData.riskScore !== undefined && scanData.riskLabel) {
+          updateSecurityStatus(
+            scanData.threatLevel,
+            scanData.details,
+            scanData.riskScore,
+            scanData.riskLabel,
+            scanData.riskReasons
+          );
+        } else {
+          // Fallback to legacy format
+          updateSecurityStatus(scanData.threatLevel, scanData.details);
+        }
         console.log('📊 Recent scan data found:', scanData);
         return;
       }
@@ -127,41 +139,109 @@ async function checkRecentScanData(url) {
 }
 
 // Update security status display
-function updateSecurityStatus(threatLevel, details) {
+function updateSecurityStatus(threatLevel, details, riskScore, riskLabel, riskReasons) {
   const securityIcon = securityStatusElement.querySelector('.security-icon');
   const securityText = securityStatusElement.querySelector('.security-text');
-  
+
   // Remove existing status classes
   securityStatusElement.classList.remove('secure', 'warning', 'danger');
-  
-  // Update based on threat level
+
+  // If we have new risk scoring data, use that
+  if (riskScore !== undefined && riskLabel) {
+    displayRiskScoringStatus(riskScore, riskLabel, riskReasons);
+    return;
+  }
+
+  // Otherwise, fall back to legacy threat level display
   switch (threatLevel) {
     case 'low':
       securityStatusElement.classList.add('secure');
       securityIcon.textContent = '✅';
       securityText.textContent = details || 'Site appears secure';
       break;
-      
+
     case 'medium':
       securityStatusElement.classList.add('warning');
       securityIcon.textContent = '⚠️';
       securityText.textContent = details || 'Potential security concerns';
       break;
-      
+
     case 'high':
       securityStatusElement.classList.add('danger');
       securityIcon.textContent = '🚨';
       securityText.textContent = details || 'Security threat detected';
       break;
-      
+
     case 'pending':
       securityIcon.textContent = '🔍';
       securityText.textContent = details || 'Ready to scan';
       break;
-      
+
     default:
       securityIcon.textContent = '❓';
       securityText.textContent = details || 'Unknown status';
+  }
+}
+
+// Display risk scoring status (new format)
+function displayRiskScoringStatus(riskScore, riskLabel, riskReasons) {
+  const securityIcon = securityStatusElement.querySelector('.security-icon');
+  const securityText = securityStatusElement.querySelector('.security-text');
+
+  // Apply appropriate class based on risk label
+  switch (riskLabel) {
+    case 'DANGEROUS':
+      securityStatusElement.classList.add('danger');
+      securityIcon.textContent = '🚨';
+      securityText.innerHTML = `
+        <strong>DANGEROUS</strong> (${riskScore}/100)
+        <div style="font-size: 12px; margin-top: 4px; opacity: 0.9;">
+          ${riskReasons && riskReasons.length > 0 ? riskReasons[0] : 'Multiple threats detected'}
+        </div>
+      `;
+      break;
+
+    case 'SUSPICIOUS':
+      securityStatusElement.classList.add('warning');
+      securityIcon.textContent = '⚠️';
+      securityText.innerHTML = `
+        <strong>SUSPICIOUS</strong> (${riskScore}/100)
+        <div style="font-size: 12px; margin-top: 4px; opacity: 0.9;">
+          ${riskReasons && riskReasons.length > 0 ? riskReasons[0] : 'Some concerns detected'}
+        </div>
+      `;
+      break;
+
+    case 'LIKELY_SAFE':
+      securityStatusElement.classList.add('secure');
+      securityIcon.textContent = '✅';
+      securityText.innerHTML = `
+        <strong>LIKELY SAFE</strong> (${riskScore}/100)
+        <div style="font-size: 12px; margin-top: 4px; opacity: 0.9;">
+          No significant threats detected
+        </div>
+      `;
+      break;
+
+    default:
+      securityIcon.textContent = '❓';
+      securityText.textContent = `Risk Score: ${riskScore}/100`;
+  }
+
+  // Add reasons list if available
+  if (riskReasons && riskReasons.length > 1) {
+    const reasonsList = document.createElement('details');
+    reasonsList.style.cssText = 'margin-top: 8px; font-size: 12px; cursor: pointer;';
+    reasonsList.innerHTML = `
+      <summary style="font-weight: 600; opacity: 0.9;">
+        View ${riskReasons.length} security concerns
+      </summary>
+      <ul style="margin: 4px 0 0 0; padding-left: 20px; opacity: 0.85;">
+        ${riskReasons.slice(0, 5).map(reason => `<li style="margin: 2px 0;">${reason}</li>`).join('')}
+        ${riskReasons.length > 5 ? `<li style="margin: 2px 0;">...and ${riskReasons.length - 5} more</li>` : ''}
+      </ul>
+    `;
+    securityText.appendChild(reasonsList);
   }
 }
 
@@ -227,11 +307,24 @@ async function handleScanButtonClick() {
     
     if (response && response.success) {
       const result = response.result;
-      updateSecurityStatus(result.threatLevel, result.details);
-      
+
+      // Check if we have new risk scoring data
+      if (result.riskScore !== undefined && result.riskLabel) {
+        updateSecurityStatus(
+          result.threatLevel,
+          result.details,
+          result.riskScore,
+          result.riskLabel,
+          result.riskReasons
+        );
+      } else {
+        // Fallback to legacy format
+        updateSecurityStatus(result.threatLevel, result.details);
+      }
+
       // Update scan count
       loadExtensionStatus();
-      
+
       console.log('✅ Manual scan completed:', result);
     } else {
       throw new Error(response?.error || 'Scan failed');

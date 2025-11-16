@@ -32,3 +32,14 @@ api-violations.log
 # OS files
 .DS_Store
 Thumbs.db
+
+# Development files (keep only production JS)
+*.ts
+*.test.js
+*.test.cjs
+*example*.ts
+*example*.js
+*poc*.js
+*poc*.mjs
+test-*.js
+test-*.cjs
