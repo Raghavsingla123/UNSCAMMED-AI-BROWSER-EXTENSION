@@ -67,6 +67,9 @@ function buildRiskScore(domain) {
   // REVOLUTIONARY: Smart combination detection
   score += evaluateSmartCombinations(domain, reasons);
 
+  // REVOLUTIONARY: HTML Content Analysis (if available)
+  score += evaluateHTMLFeatures(domain, reasons);
+
   // Cap score at 100
   score = Math.min(score, 100);
 
@@ -132,6 +135,294 @@ function evaluateSmartCombinations(domain, reasons) {
   }
 
   return score;
+}
+
+// REVOLUTIONARY: Context-Aware Bayesian HTML Content Analysis
+// Uses trust score as prior probability to weight all signals
+function evaluateHTMLFeatures(domain, reasons) {
+  let score = 0;
+
+  // Check if HTML analysis is available
+  if (!domain.html) {
+    return 0; // No HTML analysis available
+  }
+
+  const html = domain.html;
+
+  // === BAYESIAN TRUST SCORE DOMINANCE ===
+  // Trust score acts as prior probability that modulates ALL other signals
+  // High trust = legitimate site, weak signals should be heavily discounted
+
+  const trustScore = html.trustScore || 0;
+  const isHighTrust = trustScore >= 7;    // Strong trust signals (Gmail, PayPal, etc.)
+  const isMediumTrust = trustScore >= 4;  // Some trust signals
+  const isLowTrust = trustScore < 4;      // Weak/no trust signals
+
+  // Calculate trust multiplier for weak signals (Bayesian weighting)
+  // High trust sites: weak signals count for almost nothing (0.05x)
+  // Medium trust sites: weak signals count for less (0.4x)
+  // Low trust sites: weak signals count fully (1.0x)
+  let weakSignalMultiplier = 1.0;
+  if (isHighTrust) {
+    weakSignalMultiplier = 0.05;  // 95% discount for high trust sites
+  } else if (isMediumTrust) {
+    weakSignalMultiplier = 0.4;   // 60% discount for medium trust sites
+  }
+
+  // === CRITICAL HTML FLAGS (always count, but modulated by trust) ===
+  // These are STRONG signals that even legitimate sites rarely have
+
+  // NEW: Financial data harvesting - INSTANT DANGEROUS (but not on legitimate e-commerce)
+  if (html.hasFinancialHarvesting && isLowTrust) {
+    // Only flag complete harvesting on LOW trust sites (0-2 signals)
+    // Medium/high trust sites are legitimate e-commerce with checkout forms
+    score += 60;
+    reasons.push('🚨 CRITICAL: Complete credit card harvesting detected (card + CVV + expiry)');
+  } else if (html.hasCVVField && isLowTrust) {
+    // CVV field alone is suspicious on LOW trust sites only
+    score += 40;
+    reasons.push('🚨 CRITICAL: CVV/Security code field detected (credential harvesting)');
+  }
+
+  // NEW: Identity theft attempt - INSTANT DANGEROUS
+  if (html.hasIdentityTheftAttempt && isLowTrust) {
+    score += 55;
+    reasons.push('🚨 CRITICAL: Identity theft attempt (SSN/bank account requested)');
+  }
+
+  // NEW: 2FA/OTP phishing - Context-dependent danger
+  // LOW trust: Definitely phishing (no legitimate site with 0-2 trust signals needs OTP)
+  // MEDIUM trust: Could be legitimate 2FA login, only flag if brand mismatch
+  // HIGH trust: Legitimate 2FA, only flag if brand mismatch
+  if (html.has2FAPhishing && isLowTrust) {
+    score += 70;
+    reasons.push('🚨 CRITICAL: 2FA/OTP code phishing detected (NEVER legitimate!)');
+  } else if (html.has2FAPhishing && isMediumTrust && html.hasBrandMismatch) {
+    // Medium trust + brand mismatch = somewhat suspicious
+    score += 15;
+    reasons.push('ℹ️ 2FA field detected with brand mention (verify site legitimacy)');
+  } else if (html.has2FAPhishing && isHighTrust && html.hasBrandMismatch) {
+    // Even high trust sites with 2FA fields + brand mismatch = suspicious
+    score += 25;
+    reasons.push('⚠️ 2FA code field on site with brand mismatch (verify carefully)');
+  }
+
+  // NEW: Crypto fields - Context-dependent
+  // LOW trust: Definitely scam (requesting private keys)
+  // MEDIUM/HIGH trust: Could be legitimate (accepting crypto payments, crypto exchange)
+  if (html.hasCryptoScam && isLowTrust) {
+    score += 65;
+    reasons.push('🚨 CRITICAL: Cryptocurrency wallet/private key requested (SCAM!)');
+  } else if (html.hasCryptoScam && isMediumTrust) {
+    // Medium trust might legitimately accept crypto payments
+    score += 10;
+    reasons.push('ℹ️ Cryptocurrency payment option detected');
+  }
+
+  // Insecure form submission (password on HTTP) - ALWAYS CRITICAL
+  if (html.hasInsecureFormSubmission) {
+    score += 40;
+    reasons.push('🚨 CRITICAL: Password form on HTTP (unencrypted)');
+  }
+
+  // External form action (form submits to different domain) - ALWAYS CRITICAL
+  if (html.hasExternalFormAction) {
+    score += 35;
+    reasons.push('🚨 CRITICAL: Form submits to external domain (credential harvesting)');
+  }
+
+  // Copyright mismatch - Context-dependent
+  if (html.hasCopyrightMismatch && isLowTrust) {
+    score += 30;
+    reasons.push('🚨 Brand copyright mismatch detected');
+  } else if (html.hasCopyrightMismatch && isMediumTrust) {
+    score += 10;
+    reasons.push('ℹ️ Copyright year mismatch detected');
+  }
+
+  // Brand mention mismatch - Context-dependent
+  // Note: E-commerce sites often mention payment brands (Visa, PayPal) or partner brands
+  if (html.hasBrandMismatch && isLowTrust) {
+    score += 30;
+    reasons.push(`🚨 Page mentions brand but domain doesn't match`);
+  } else if (html.hasBrandMismatch && isMediumTrust) {
+    score += 8;
+    reasons.push(`ℹ️ Page mentions external brands (common for e-commerce)`);
+  }
+
+  // === CONTEXT-AWARE WEAK SIGNALS (modulated by trust) ===
+  // These are WEAK signals that legitimate sites often have
+
+  // Hidden iframes - ONLY suspicious on low trust sites
+  // Medium/high trust sites (Gmail, e-commerce) legitimately use iframes for ads, widgets, etc.
+  if (html.hasHiddenIframes && isLowTrust) {
+    const iframeScore = Math.round(25 * weakSignalMultiplier);
+    if (iframeScore > 0) {
+      score += iframeScore;
+      reasons.push('⚠️ Hidden iframes detected (suspicious)');
+    }
+  }
+
+  // Urgent language - ONLY suspicious on low trust sites
+  // High trust sites (Gmail, banks) have legitimate security warnings
+  if (html.hasUrgentLanguage && isLowTrust) {
+    const urgencyScore = Math.round(15 * weakSignalMultiplier);
+    if (urgencyScore > 0) {
+      score += urgencyScore;
+      reasons.push(`⚠️ Urgency/scare tactics detected (${html.urgencyScore} patterns)`);
+    }
+  }
+
+  // Generic content - ONLY suspicious on low trust sites
+  // Many legitimate sites use templates
+  if (html.hasGenericContent && isLowTrust) {
+    const genericScore = Math.round(10 * weakSignalMultiplier);
+    if (genericScore > 0) {
+      score += genericScore;
+      reasons.push('ℹ️ Generic template content detected');
+    }
+  }
+
+  // === MEDIUM-STRENGTH SIGNALS (partially modulated) ===
+
+  // Link text-href mismatch - Suspicious even on medium trust sites
+  if (html.hasMismatchedLinks) {
+    const mismatchMultiplier = isHighTrust ? 0.1 : 0.6;
+    const linkScore = Math.round(25 * mismatchMultiplier);
+    if (linkScore > 0) {
+      score += linkScore;
+      reasons.push('⚠️ Link display text doesn\'t match destination');
+    }
+  }
+
+  // Login form - Only flag if combined with other issues
+  if (html.hasLoginForm && isLowTrust) {
+    score += 10;
+    reasons.push('ℹ️ Login form detected on page');
+  }
+
+  // Password field - Only flag if combined with other issues
+  if (html.hasPasswordField && isLowTrust) {
+    score += 10;
+    reasons.push('ℹ️ Password field detected');
+  }
+
+  // Missing CSRF token - Only flag on low trust sites
+  if (html.hasMissingCSRFToken && html.hasPasswordField && isLowTrust) {
+    score += 15;
+    reasons.push('⚠️ Missing CSRF protection token');
+  }
+
+  // Suspicious form patterns - Modulated by trust
+  if (html.suspiciousFormPatterns > 0) {
+    const formScore = Math.round(html.suspiciousFormPatterns * 5 * weakSignalMultiplier);
+    if (formScore > 0) {
+      score += formScore;
+      reasons.push(`⚠️ ${html.suspiciousFormPatterns} suspicious form patterns detected`);
+    }
+  }
+
+  // Excessive external links - Only flag on low trust sites
+  if (html.hasExcessiveExternalLinks && isLowTrust) {
+    score += 12;
+    reasons.push('⚠️ Excessive external links (>70%)');
+  }
+
+  // Spelling errors - Only flag on low trust sites
+  if (html.hasSpellingErrors && isLowTrust) {
+    score += 10;
+    reasons.push('ℹ️ Spelling/grammar errors detected');
+  }
+
+  // NEW: Countdown timer - Suspicious urgency tactic
+  if (html.hasCountdownTimer && isLowTrust) {
+    score += 20;
+    reasons.push('⚠️ Countdown timer detected (fake urgency tactic)');
+  }
+
+  // NEW: Popup/modal - Fake security warnings (only flag on low trust)
+  // Medium/high trust sites legitimately use modals for newsletters, cookies, etc.
+  if (html.hasPopupModal && (html.hasUrgentLanguage || html.hasLoginForm) && isLowTrust) {
+    score += 15;
+    reasons.push('⚠️ Suspicious popup/modal with login or urgency language');
+  }
+
+  // NEW: Fake security badge - Impersonating security companies
+  if (html.hasFakeSecurityBadge && !isHighTrust) {
+    score += 25;
+    reasons.push('⚠️ Fake security badge detected (impersonating McAfee/Norton/Verisign)');
+  }
+
+  // Suspicious hidden redirect fields - Context-dependent
+  if (html.hiddenRedirectFields > 0 && isLowTrust) {
+    score += html.hiddenRedirectFields * 8;
+    reasons.push(`⚠️ Hidden redirect fields detected`);
+  } else if (html.hiddenRedirectFields > 0 && isMediumTrust) {
+    score += html.hiddenRedirectFields * 3;
+    reasons.push(`ℹ️ Hidden redirect fields detected (common in e-commerce)`);
+  }
+
+  // === TRUST SIGNAL ANALYSIS ===
+  // Low trust score = missing legitimate site indicators
+  if (html.isLowTrust && html.hasLoginForm) {
+    score += 20;
+    reasons.push('🚨 Login form with very low trust signals (no privacy policy, contact info, etc.)');
+  } else if (html.isLowTrust && !html.hasLoginForm) {
+    score += 10;
+    reasons.push('⚠️ Low trust signals (missing privacy policy, terms, contact info)');
+  }
+
+  // === REVOLUTIONARY COMBINATIONS (HTML + URL) ===
+  // These are STRONG signals even with trust modulation
+
+  // New domain + login form + low trust = PHISHING KIT
+  if (domain.isVeryNew && html.hasLoginForm && html.isLowTrust) {
+    score += 30;
+    reasons.push('🚨 CRITICAL: New domain + login form + no trust signals (phishing kit)');
+  }
+
+  // Brand impersonation + login form + low trust
+  if (domain.looksLikeBrand && html.hasLoginForm && html.isLowTrust) {
+    score += 25;
+    reasons.push('🚨 CRITICAL: Brand impersonation with login form and no trust signals');
+  }
+
+  // Free hosting + login form + brand mention
+  if (domain.isFreeHostingService && html.hasLoginForm && html.brandMismatchCount > 0) {
+    score += 20;
+    reasons.push('🚨 Free hosting with brand impersonation login page');
+  }
+
+  // Urgent language + new domain + login form (only if low trust)
+  if (html.hasUrgentLanguage && domain.isNew && html.hasLoginForm && isLowTrust) {
+    score += 20;
+    reasons.push('🚨 Scare tactics on new domain with login form');
+  }
+
+  // === POSITIVE SIGNALS (reduce score for legitimate indicators) ===
+
+  // High trust signal count - STRONG negative weight for legitimate sites
+  if (html.trustSignalScore >= 7 && !html.hasBrandMismatch) {
+    score -= 20;  // Increased from -15
+    reasons.push('✅ Strong trust signals detected (privacy policy, contact info, etc.)');
+  } else if (html.trustSignalScore >= 5 && !html.hasBrandMismatch) {
+    score -= 10;
+    reasons.push('✅ Moderate trust signals detected');
+  }
+
+  // Good input quality (proper HTML5 attributes)
+  if (html.inputQualityScore >= 6 && html.hasLoginForm) {
+    score -= 10;
+    reasons.push('✅ Proper form validation attributes detected');
+  }
+
+  // High meta tag quality
+  if (html.metaTagQuality >= 8) {
+    score -= 5;
+    reasons.push('✅ Professional meta tags detected');
+  }
+
+  return Math.max(0, score); // Never go negative
 }
 
 // High-risk flag evaluation

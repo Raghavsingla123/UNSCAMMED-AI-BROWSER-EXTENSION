@@ -7,6 +7,9 @@ console.log('🛡️ UNSCAMMED.AI Content Script loaded on:', window.location.hr
 (function() {
   'use strict';
 
+  // REVOLUTIONARY: Analyze HTML content when page loads
+  analyzePageAndSendToBackground();
+
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('📨 Message received:', request.type);
@@ -25,9 +28,84 @@ console.log('🛡️ UNSCAMMED.AI Content Script loaded on:', window.location.hr
       sendResponse({ success: true, message: 'Scan initiated' });
       return true;
     }
+
+    if (request.type === "REQUEST_HTML_ANALYSIS") {
+      // Background script requesting HTML analysis
+      const htmlFeatures = analyzePageHTML();
+      sendResponse({ success: true, htmlFeatures });
+      return true;
+    }
   });
 
 })();
+
+// ============================================================
+// REVOLUTIONARY: HTML CONTENT ANALYSIS
+// ============================================================
+
+/**
+ * Analyze current page HTML and send to background script
+ */
+function analyzePageAndSendToBackground() {
+  try {
+    // Wait for DOM to be fully loaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', performHTMLAnalysis);
+    } else {
+      // DOM already loaded
+      performHTMLAnalysis();
+    }
+  } catch (error) {
+    console.error('❌ Failed to initiate HTML analysis:', error);
+  }
+}
+
+/**
+ * Perform HTML analysis and send to background
+ */
+function performHTMLAnalysis() {
+  try {
+    console.log('🔬 Starting revolutionary HTML analysis...');
+
+    const htmlFeatures = analyzePageHTML();
+
+    // Send HTML features to background script
+    chrome.runtime.sendMessage({
+      type: 'HTML_ANALYSIS_COMPLETE',
+      url: window.location.href,
+      htmlFeatures: htmlFeatures
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.warn('⚠️  Could not send HTML analysis:', chrome.runtime.lastError.message);
+      } else {
+        console.log('✅ HTML analysis sent to background script');
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ HTML analysis failed:', error);
+  }
+}
+
+/**
+ * Analyze current page HTML using advanced analyzer
+ */
+function analyzePageHTML() {
+  try {
+    // Call the advanced HTML analyzer (loaded from advancedHtmlAnalyzer.js)
+    if (typeof analyzeHTMLContent === 'function') {
+      const analysis = analyzeHTMLContent(document, window.location.href);
+      console.log(`✅ HTML analysis complete: Trust=${analysis.trustScore}, Suspicion=${analysis.suspicionScore}`);
+      return analysis;
+    } else {
+      console.warn('⚠️  advancedHtmlAnalyzer.js not loaded');
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Error analyzing HTML:', error);
+    return null;
+  }
+}
 
 // ============================================================
 // RISK ASSESSMENT DISPLAY

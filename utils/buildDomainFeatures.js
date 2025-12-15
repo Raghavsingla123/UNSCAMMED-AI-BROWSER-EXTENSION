@@ -242,13 +242,29 @@ function detectBrandImpersonation(hostname) {
 }
 
 function detectTyposquatting(hostname) {
+  // Check for ACTUAL typosquatting, not legitimate domains
+  // Only match suspicious variations, not the real domains
+
   const typoPatterns = [
-    /g[o]{3,}gle\.com/,
-    /g[o]{1}[o0]gle\.com/,
-    /paypa[l1]\.com/,
-    /amaz[o0]n\.com/,
-    /faceb[o0]{2}k\.com/,
+    /g[o]{3,}gle\.com/,      // gooogle.com (3+ o's) - NOT google.com
+    /g0[o0]gle\.com/,        // g00gle.com, g0ogle.com - NOT google.com
+    /paypa1\.com/,           // paypal with number 1 - NOT paypal.com
+    /amaz0n\.com/,           // amazon with 0 - NOT amazon.com
+    /faceb[o0]{2}k\.com/,    // facebo0k.com - NOT facebook.com
+    /micros0ft\.com/,        // microsoft with 0
+    /app1e\.com/,            // apple with 1
   ];
+
+  // IMPORTANT: Don't match legitimate domains
+  const legitimateDomains = [
+    'google.com', 'paypal.com', 'amazon.com',
+    'facebook.com', 'microsoft.com', 'apple.com'
+  ];
+
+  // If it's a legitimate domain (with any subdomain), it's NOT typosquatting
+  if (legitimateDomains.some(domain => hostname === domain || hostname.endsWith('.' + domain))) {
+    return false;
+  }
 
   return typoPatterns.some(pattern => pattern.test(hostname));
 }
@@ -386,16 +402,30 @@ function detectAdvancedThreats(urlObj, hostname, fullUrl) {
   }
 
   // 7. Number substitution patterns (g00gle, micr0soft, etc.)
-  const numberSubstitutions = [
-    /[o0]{2,}/gi,  // Multiple o's or 0's
-    /[il1]{2,}/gi,  // Multiple i/l/1's
-    /[sz2]{2,}/gi,  // s/z/2 confusion
-    /[o0]o/gi,  // 0o or o0 patterns
-    /[il1]l/gi,  // 1l or l1 patterns
+  // IMPORTANT: Don't flag legitimate domains with natural letter repetitions
+  const legitimateDomainsForSubstitution = [
+    'google.com', 'yahoo.com', 'zoom.com', 'booking.com', 'paypal.com',
+    'facebook.com', 'messenger.com', 'apple.com', 'support.com', 'reddit.com',
+    'twitter.com', 'linkedin.com', 'microsoft.com', 'amazon.com'
   ];
-  if (numberSubstitutions.some(pattern => pattern.test(hostname))) {
-    threats.hasNumberSubstitution = true;
-    threats.combinedWeakSignals++;
+
+  // If it's a legitimate domain (with any subdomain), skip number substitution check
+  const isLegitimateForSubstitution = legitimateDomainsForSubstitution.some(domain =>
+    hostname === domain || hostname.endsWith('.' + domain)
+  );
+
+  if (!isLegitimateForSubstitution) {
+    const numberSubstitutions = [
+      /[o0]{2,}/gi,  // Multiple o's or 0's
+      /[il1]{2,}/gi,  // Multiple i/l/1's
+      /[sz2]{2,}/gi,  // s/z/2 confusion
+      /[o0]o/gi,  // 0o or o0 patterns
+      /[il1]l/gi,  // 1l or l1 patterns
+    ];
+    if (numberSubstitutions.some(pattern => pattern.test(hostname))) {
+      threats.hasNumberSubstitution = true;
+      threats.combinedWeakSignals++;
+    }
   }
 
   // 8. Suspicious path patterns

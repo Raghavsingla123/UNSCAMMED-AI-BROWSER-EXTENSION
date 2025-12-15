@@ -3,7 +3,7 @@
 ## Core Extension Files
 
 ```
-UNSCAMMED AI BROWSER EXTENSION/
+UNSCAMMED AI BROWSER EXTENSION/i
 │
 ├── manifest.json                    # Extension configuration
 ├── background.js                    # Background service worker (main logic)

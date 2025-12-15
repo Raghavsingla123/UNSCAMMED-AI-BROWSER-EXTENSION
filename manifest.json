@@ -23,25 +23,17 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": [
+        "utils/advancedHtmlAnalyzer.js",
+        "content.js"
+      ],
       "run_at": "document_end"
     }
   ],
   
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "UNSCAMMED.AI - Browser Shield",
-    "default_icon": {
-      "16": "icons/icon16.svg",
-      "48": "icons/icon48.svg", 
-      "128": "icons/icon128.svg"
-    }
-  },
-  
-  "icons": {
-    "16": "icons/icon16.svg",
-    "48": "icons/icon48.svg",
-    "128": "icons/icon128.svg"
+    "default_title": "UNSCAMMED.AI - Browser Shield"
   },
   
   "web_accessible_resources": [

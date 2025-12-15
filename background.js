@@ -4,7 +4,14 @@
 console.log('🛡️ UNSCAMMED.AI Background Service Worker initialized');
 
 // Import utility modules
-importScripts('utils/buildDomainFeatures.js', 'utils/riskScoring.js');
+importScripts(
+  'utils/buildDomainFeatures.js',
+  'utils/riskScoring.js',
+  'utils/domainAgeChecker.js'
+);
+
+// Store HTML analysis results temporarily (URL → HTML features)
+const htmlAnalysisCache = new Map();
 
 // Initialize extension state on startup
 chrome.runtime.onStartup.addListener(() => {
@@ -97,17 +104,215 @@ async function performAutomaticRiskAssessment(url, tabId) {
     // Log the visited URL
     logVisitedUrl(url, tabId, scanId);
 
-    // Call Google Web Risk API for automatic protection
-    console.log('📡 Calling Google Web Risk API...');
-    const webRiskData = await fetchWebRiskData(url);
+    // ═══════════════════════════════════════════════════════════
+    // REVOLUTIONARY NEW FLOW: Sequential Intelligence Gathering
+    // Step 1: URL → Step 2: Domain Age → Step 3: HTML → Step 4: Web Risk
+    // ═══════════════════════════════════════════════════════════
 
-    // Extract domain features (merge Web Risk results)
-    console.log('🔍 Extracting domain features...');
-    const domainFeatures = buildDomainFeatures(url, webRiskData);
+    console.log('🚀 Starting comprehensive phishing detection...');
+    console.log('═'.repeat(60));
 
-    // Calculate risk score
-    console.log('📊 Calculating risk score...');
-    const riskAssessment = buildRiskScore(domainFeatures);
+    // STEP 1: Local URL Pattern Analysis (Cost: $0, Time: 1-5ms)
+    console.log('🔍 STEP 1: Local URL Pattern Analysis...');
+    const localFeatures = buildDomainFeatures(url, null);
+    const localRiskAssessment = buildRiskScore(localFeatures);
+
+    console.log(`📊 Local analysis: ${localRiskAssessment.score}/100 (${localRiskAssessment.label})`);
+    console.log('📋 Key patterns detected:', {
+      usesHttps: localFeatures.usesHttps,
+      isFreeHostingService: localFeatures.isFreeHostingService,
+      looksLikeBrand: localFeatures.looksLikeBrand,
+      hasTyposquatting: localFeatures.hasTyposquatting,
+      isRiskyTld: localFeatures.isRiskyTld,
+      hasHomoglyphs: localFeatures.hasHomoglyphs,
+      usesIpAddress: localFeatures.usesIpAddress,
+      isUrlShortener: localFeatures.isUrlShortener,
+    });
+    console.log('📋 Risk reasons:', localRiskAssessment.reasons);
+    console.log('═'.repeat(60));
+
+    let webRiskData = null;
+    let domainAgeData = null;
+    let finalFeatures = localFeatures;
+    let finalRiskAssessment = localRiskAssessment;
+
+    // STEP 2: Domain Age Analysis - ALWAYS CHECK (Cost: ~$0.0001, Time: 100-500ms)
+    console.log('📅 STEP 2: Domain Age Analysis (checking ALL sites)...');
+    try {
+      const urlObj = new URL(url);
+      domainAgeData = await getDomainAge(urlObj.hostname);
+
+      if (domainAgeData && domainAgeData.domainAgeDays !== null) {
+        console.log(`✅ Domain age successfully retrieved!`);
+        console.log(`📅 Domain age: ${domainAgeData.domainAgeDays} days old`);
+        console.log(`📅 Age category: ${domainAgeData.ageCategory}`);
+        console.log(`📅 Is very new (< 7 days): ${domainAgeData.isVeryNew}`);
+        console.log(`📅 Is new (< 30 days): ${domainAgeData.isNew}`);
+        console.log(`📅 Is young (< 1 year): ${domainAgeData.isYoung}`);
+        console.log(`📅 WHOIS privacy: ${domainAgeData.whoisPrivacyEnabled}`);
+        console.log(`📅 Creation date: ${domainAgeData.creationDate}`);
+
+        // Merge domain age into features
+        finalFeatures = {
+          ...finalFeatures,
+          ...domainAgeData
+        };
+
+        // Recalculate with domain age
+        finalRiskAssessment = buildRiskScore(finalFeatures);
+        console.log(`📊 Score after domain age: ${finalRiskAssessment.score}/100 (${finalRiskAssessment.label})`);
+      } else {
+        console.warn('⚠️  Domain age data was null or incomplete');
+      }
+    } catch (error) {
+      console.warn('⚠️  Domain age check failed:', error.message);
+    }
+    console.log('═'.repeat(60));
+
+    // STEP 3: Wait for HTML Content Analysis (Cost: $0, Timeout: 3 seconds)
+    console.log('🔬 STEP 3: Waiting for HTML Content Analysis (timeout: 3s)...');
+
+    // Function to wait for HTML analysis with timeout
+    const waitForHtmlAnalysis = (url, timeoutMs) => {
+      return new Promise((resolve) => {
+        const startTime = Date.now();
+        const checkInterval = 100; // Check every 100ms
+
+        const checkForHtml = () => {
+          const htmlAnalysis = htmlAnalysisCache.get(url);
+
+          if (htmlAnalysis && htmlAnalysis.htmlFeatures) {
+            // HTML analysis found!
+            resolve(htmlAnalysis);
+          } else if (Date.now() - startTime >= timeoutMs) {
+            // Timeout reached
+            console.log(`⏱️  HTML analysis timeout (${timeoutMs}ms) - proceeding without HTML data`);
+            resolve(null);
+          } else {
+            // Keep waiting
+            setTimeout(checkForHtml, checkInterval);
+          }
+        };
+
+        checkForHtml();
+      });
+    };
+
+    // Wait for HTML analysis (3 second timeout)
+    const htmlAnalysis = await waitForHtmlAnalysis(url, 3000);
+
+    if (htmlAnalysis && htmlAnalysis.htmlFeatures) {
+      console.log('✅ HTML analysis received!');
+      console.log(`🔬 Trust signal count: ${htmlAnalysis.htmlFeatures.trustSignalScore}/10`);
+      console.log(`🔬 Overall trust score: ${htmlAnalysis.htmlFeatures.trustScore}/100`);
+      console.log(`🔬 Suspicion signals: ${htmlAnalysis.htmlFeatures.suspicionScore || 0}`);
+
+      // COMPREHENSIVE HTML FLAGS LOGGING
+      console.log('🔬 HTML flags (ALL PROPERTIES):');
+      console.log('  📝 Basic Detection:');
+      console.log(`    - hasLoginForm: ${htmlAnalysis.htmlFeatures.hasLoginForm}`);
+      console.log(`    - hasPasswordField: ${htmlAnalysis.htmlFeatures.hasPasswordField}`);
+      console.log(`    - hasInsecureFormSubmission: ${htmlAnalysis.htmlFeatures.hasInsecureFormSubmission}`);
+      console.log(`    - hasExternalFormAction: ${htmlAnalysis.htmlFeatures.hasExternalFormAction}`);
+
+      console.log('  💳 Financial Harvesting Detection:');
+      console.log(`    - hasFinancialHarvesting: ${htmlAnalysis.htmlFeatures.hasFinancialHarvesting}`);
+      console.log(`    - hasCVVField: ${htmlAnalysis.htmlFeatures.hasCVVField}`);
+      console.log(`    - hasBankAccountField: ${htmlAnalysis.htmlFeatures.hasBankAccountField}`);
+      console.log(`    - hasCryptoField: ${htmlAnalysis.htmlFeatures.hasCryptoField}`);
+
+      console.log('  🎣 Phishing Detection:');
+      console.log(`    - has2FAPhishing: ${htmlAnalysis.htmlFeatures.has2FAPhishing}`);
+      console.log(`    - hasOTPField: ${htmlAnalysis.htmlFeatures.hasOTPField}`);
+      console.log(`    - hasBrandMismatch: ${htmlAnalysis.htmlFeatures.hasBrandMismatch}`);
+      console.log(`    - hasHiddenIframes: ${htmlAnalysis.htmlFeatures.hasHiddenIframes}`);
+
+      console.log('  ⏰ Urgency Tactics:');
+      console.log(`    - hasUrgentLanguage: ${htmlAnalysis.htmlFeatures.hasUrgentLanguage}`);
+      console.log(`    - hasCountdownTimer: ${htmlAnalysis.htmlFeatures.hasCountdownTimer}`);
+      console.log(`    - hasFakeSecurityBadge: ${htmlAnalysis.htmlFeatures.hasFakeSecurityBadge}`);
+
+      console.log('  🎯 Trust Classification:');
+      console.log(`    - isLowTrust: ${htmlAnalysis.htmlFeatures.isLowTrust}`);
+      console.log(`    - isMediumTrust: ${htmlAnalysis.htmlFeatures.isMediumTrust}`);
+      console.log(`    - isHighTrust: ${htmlAnalysis.htmlFeatures.isHighTrust}`);
+
+      // Merge HTML features
+      finalFeatures = {
+        ...finalFeatures,
+        html: htmlAnalysis.htmlFeatures
+      };
+
+      // Recalculate with HTML features
+      finalRiskAssessment = buildRiskScore(finalFeatures);
+      console.log(`📊 Score after HTML analysis: ${finalRiskAssessment.score}/100 (${finalRiskAssessment.label})`);
+
+      // DETAILED RISK REASONS LOGGING
+      console.log('📋 DETAILED RISK REASONS:');
+      if (finalRiskAssessment.reasons && finalRiskAssessment.reasons.length > 0) {
+        finalRiskAssessment.reasons.forEach((reason, index) => {
+          console.log(`  ${index + 1}. ${reason}`);
+        });
+      } else {
+        console.log('  No specific risk reasons detected');
+      }
+
+      // Clean up cache entry
+      htmlAnalysisCache.delete(url);
+    } else {
+      console.log('ℹ️  No HTML analysis available (timeout or content script not loaded)');
+      console.log('💡 Proceeding with URL + Domain Age data only');
+    }
+    console.log('═'.repeat(60));
+
+    // STEP 4: Decide whether to call Web Risk API (Threshold: score >= 30)
+    console.log('🌐 STEP 4: Web Risk API Decision...');
+    console.log(`📊 Combined score (URL + Domain Age + HTML): ${finalRiskAssessment.score}/100`);
+
+    if (finalRiskAssessment.score >= 30) {
+      // Site looks SUSPICIOUS or higher - validate with Web Risk API
+      console.log('⚠️  Site shows suspicious signals (score >= 30)');
+      console.log('🌐 Calling Google Web Risk API for final validation...');
+
+      try {
+        webRiskData = await fetchWebRiskData(url);
+
+        if (webRiskData) {
+          // Re-analyze with Web Risk data included
+          console.log('✅ Web Risk data received!');
+          finalFeatures = buildDomainFeatures(url, webRiskData);
+
+          // Preserve domain age and HTML data
+          if (domainAgeData) {
+            finalFeatures = { ...finalFeatures, ...domainAgeData };
+          }
+          if (htmlAnalysis && htmlAnalysis.htmlFeatures) {
+            finalFeatures = { ...finalFeatures, html: htmlAnalysis.htmlFeatures };
+          }
+
+          finalRiskAssessment = buildRiskScore(finalFeatures);
+          console.log(`📊 Final score with Web Risk: ${finalRiskAssessment.score}/100 (${finalRiskAssessment.label})`);
+        }
+      } catch (error) {
+        console.warn('⚠️  Web Risk API call failed:', error.message);
+      }
+    } else {
+      // Site appears safe or low-risk after all free checks - skip expensive API
+      console.log('✅ Site appears safe or low-risk (score < 30)');
+      console.log('💰 Skipping Web Risk API call (cost optimization)');
+      console.log('💡 Final decision based on free checks only');
+    }
+    console.log('═'.repeat(60));
+
+    // Summary of entire detection process
+    console.log('📊 DETECTION SUMMARY:');
+    console.log(`   URL Analysis Score:    ${localRiskAssessment.score}/100`);
+    console.log(`   After Domain Age:      ${domainAgeData ? finalRiskAssessment.score : localRiskAssessment.score}/100`);
+    console.log(`   After HTML Analysis:   ${finalRiskAssessment.score}/100`);
+    console.log(`   Final Risk Label:      ${finalRiskAssessment.label}`);
+    console.log(`   Web Risk API Called:   ${webRiskData ? 'YES' : 'NO'}`);
+    console.log(`   Total Risk Reasons:    ${finalRiskAssessment.reasons.length}`);
+    console.log('═'.repeat(60));
 
     // Create comprehensive result
     const result = {
@@ -115,28 +320,41 @@ async function performAutomaticRiskAssessment(url, tabId) {
       type: 'SCAN_RESULT',
       url: url,
 
-      // NEW: Risk scoring
-      riskScore: riskAssessment.score,
-      riskLabel: riskAssessment.label,
-      riskReasons: riskAssessment.reasons,
+      // Risk scoring
+      riskScore: finalRiskAssessment.score,
+      riskLabel: finalRiskAssessment.label,
+      riskReasons: finalRiskAssessment.reasons,
 
       // Legacy fields for compatibility
-      threats: domainFeatures.webRiskThreatTypes,
-      threatLevel: mapRiskLabelToThreatLevel(riskAssessment.label),
-      isSecure: riskAssessment.label === 'LIKELY_SAFE',
-      details: generateDetailsMessage(riskAssessment),
+      threats: finalFeatures.webRiskThreatTypes,
+      threatLevel: mapRiskLabelToThreatLevel(finalRiskAssessment.label),
+      isSecure: finalRiskAssessment.label === 'LIKELY_SAFE',
+      details: generateDetailsMessage(finalRiskAssessment),
 
       // Domain features
-      features: domainFeatures,
+      features: finalFeatures,
+
+      // Domain age information (for display)
+      domainAge: domainAgeData ? {
+        ageDays: domainAgeData.domainAgeDays,
+        ageCategory: domainAgeData.ageCategory,
+        creationDate: domainAgeData.creationDate,
+        isVeryNew: domainAgeData.isVeryNew,
+        isNew: domainAgeData.isNew,
+        whoisPrivacy: domainAgeData.whoisPrivacyEnabled
+      } : null,
+      domainAgeChecked: domainAgeData !== null,
 
       // Metadata
-      source: webRiskData ? 'automatic-scan-with-webrisk' : 'automatic-scan-local',
+      source: webRiskData ? 'automatic-scan-with-webrisk' : 'automatic-scan-local-only',
       scanType: 'automatic',
+      localScore: localRiskAssessment.score,
+      webRiskCalled: webRiskData !== null,
       cost: 0,
       timestamp: Date.now()
     };
 
-    console.log(`✅ Risk assessment complete: ${result.riskScore}/100 (${result.riskLabel})`);
+    console.log(`✅ Risk assessment complete: ${result.riskScore}/100 (${result.riskLabel}) [Web Risk API: ${result.webRiskCalled ? 'Called' : 'Skipped'}]`);
 
     // Store scan result
     handleScanResult(result, scanId);
@@ -240,6 +458,26 @@ function handleScanResult(scanResult, scanId) {
 
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // Handle HTML analysis from content script
+  if (request.type === "HTML_ANALYSIS_COMPLETE") {
+    console.log('🔬 HTML analysis received from content script');
+
+    // Store HTML features temporarily (will be merged during risk assessment)
+    htmlAnalysisCache.set(request.url, {
+      htmlFeatures: request.htmlFeatures,
+      timestamp: Date.now()
+    });
+
+    // Clean old entries (keep last 100)
+    if (htmlAnalysisCache.size > 100) {
+      const firstKey = htmlAnalysisCache.keys().next().value;
+      htmlAnalysisCache.delete(firstKey);
+    }
+
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (request.type === "MANUAL_SCAN") {
     console.log('🔍 Manual scan requested for:', request.url);
 
@@ -269,54 +507,149 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // Perform manual security scan with full risk assessment
+// Uses SAME sequential flow as automatic detection
 async function performManualScan(tabId, url) {
   return new Promise(async (resolve, reject) => {
     try {
       // Generate scan ID
       const scanId = generateId();
 
-      console.log('🔍 Starting manual scan...');
+      console.log('🔍 Starting manual scan (using new sequential flow)...');
+      console.log('═'.repeat(60));
 
-      // Step 1: Call Google Web Risk API (using shared function)
-      const webRiskData = await fetchWebRiskData(url);
-      const webRiskError = webRiskData ? null : 'API unavailable';
+      // STEP 1: Local URL Pattern Analysis
+      console.log('🔍 STEP 1: Local URL Pattern Analysis...');
+      const localFeatures = buildDomainFeatures(url, null);
+      const localRiskAssessment = buildRiskScore(localFeatures);
 
-      // Step 2: Extract domain features (merge Web Risk results)
-      console.log('🔍 Extracting domain features...');
-      const domainFeatures = buildDomainFeatures(url, webRiskData);
+      console.log(`📊 Local analysis: ${localRiskAssessment.score}/100 (${localRiskAssessment.label})`);
+      console.log('📋 Risk reasons:', localRiskAssessment.reasons);
+      console.log('═'.repeat(60));
 
-      // Step 3: Calculate comprehensive risk score
-      console.log('📊 Calculating risk score...');
-      const riskAssessment = buildRiskScore(domainFeatures);
+      let webRiskData = null;
+      let webRiskError = null;
+      let domainAgeData = null;
+      let finalFeatures = localFeatures;
+      let finalRiskAssessment = localRiskAssessment;
 
-      // Step 4: Create comprehensive result
+      // STEP 2: Domain Age Analysis - ALWAYS CHECK
+      console.log('📅 STEP 2: Domain Age Analysis (checking ALL sites)...');
+      try {
+        const urlObj = new URL(url);
+        domainAgeData = await getDomainAge(urlObj.hostname);
+
+        if (domainAgeData && domainAgeData.domainAgeDays !== null) {
+          console.log(`✅ Domain age: ${domainAgeData.domainAgeDays} days (${domainAgeData.ageCategory})`);
+
+          // Merge domain age into features
+          finalFeatures = { ...finalFeatures, ...domainAgeData };
+          finalRiskAssessment = buildRiskScore(finalFeatures);
+          console.log(`📊 Score after domain age: ${finalRiskAssessment.score}/100`);
+        }
+      } catch (error) {
+        console.warn('⚠️  Domain age check failed:', error.message);
+      }
+      console.log('═'.repeat(60));
+
+      // STEP 3: Wait for HTML Analysis (1 second timeout for manual scan)
+      console.log('🔬 STEP 3: Waiting for HTML analysis (1s timeout)...');
+
+      const waitForHtmlAnalysis = (url, timeoutMs) => {
+        return new Promise((resolve) => {
+          const startTime = Date.now();
+          const checkInterval = 100;
+
+          const checkForHtml = () => {
+            const htmlAnalysis = htmlAnalysisCache.get(url);
+            if (htmlAnalysis && htmlAnalysis.htmlFeatures) {
+              resolve(htmlAnalysis);
+            } else if (Date.now() - startTime >= timeoutMs) {
+              resolve(null);
+            } else {
+              setTimeout(checkForHtml, checkInterval);
+            }
+          };
+          checkForHtml();
+        });
+      };
+
+      const htmlAnalysis = await waitForHtmlAnalysis(url, 1000);
+
+      if (htmlAnalysis && htmlAnalysis.htmlFeatures) {
+        console.log('✅ HTML analysis received!');
+        finalFeatures = { ...finalFeatures, html: htmlAnalysis.htmlFeatures };
+        finalRiskAssessment = buildRiskScore(finalFeatures);
+        console.log(`📊 Score after HTML: ${finalRiskAssessment.score}/100`);
+        htmlAnalysisCache.delete(url);
+      } else {
+        console.log('ℹ️  No HTML analysis available');
+      }
+      console.log('═'.repeat(60));
+
+      // STEP 4: Web Risk API Decision (threshold: 30)
+      console.log('🌐 STEP 4: Web Risk API Decision...');
+      console.log(`📊 Combined score: ${finalRiskAssessment.score}/100`);
+
+      if (finalRiskAssessment.score >= 30) {
+        console.log('⚠️  SUSPICIOUS - calling Web Risk API...');
+        webRiskData = await fetchWebRiskData(url);
+        webRiskError = webRiskData ? null : 'API unavailable';
+
+        if (webRiskData) {
+          console.log('✅ Web Risk data received!');
+          finalFeatures = buildDomainFeatures(url, webRiskData);
+          if (domainAgeData) finalFeatures = { ...finalFeatures, ...domainAgeData };
+          if (htmlAnalysis) finalFeatures = { ...finalFeatures, html: htmlAnalysis.htmlFeatures };
+          finalRiskAssessment = buildRiskScore(finalFeatures);
+          console.log(`📊 Final score: ${finalRiskAssessment.score}/100`);
+        }
+      } else {
+        console.log('✅ Score < 30 - skipping Web Risk API');
+        webRiskError = 'Skipped (score < 30 threshold)';
+      }
+      console.log('═'.repeat(60));
+
+      // Create comprehensive result
       const result = {
         id: scanId,
         type: 'SCAN_RESULT',
         url: url,
 
         // Risk scoring
-        riskScore: riskAssessment.score,
-        riskLabel: riskAssessment.label,
-        riskReasons: riskAssessment.reasons,
+        riskScore: finalRiskAssessment.score,
+        riskLabel: finalRiskAssessment.label,
+        riskReasons: finalRiskAssessment.reasons,
 
         // Legacy fields
-        threats: domainFeatures.webRiskThreatTypes,
-        threatLevel: mapRiskLabelToThreatLevel(riskAssessment.label),
-        isSecure: riskAssessment.label === 'LIKELY_SAFE',
-        details: generateDetailsMessage(riskAssessment, webRiskError),
+        threats: finalFeatures.webRiskThreatTypes,
+        threatLevel: mapRiskLabelToThreatLevel(finalRiskAssessment.label),
+        isSecure: finalRiskAssessment.label === 'LIKELY_SAFE',
+        details: generateDetailsMessage(finalRiskAssessment, webRiskError),
 
         // Domain features
-        features: domainFeatures,
+        features: finalFeatures,
+
+        // Domain age information (for display)
+        domainAge: domainAgeData ? {
+          ageDays: domainAgeData.domainAgeDays,
+          ageCategory: domainAgeData.ageCategory,
+          creationDate: domainAgeData.creationDate,
+          isVeryNew: domainAgeData.isVeryNew,
+          isNew: domainAgeData.isNew,
+          whoisPrivacy: domainAgeData.whoisPrivacyEnabled
+        } : null,
+        domainAgeChecked: domainAgeData !== null,
 
         // Metadata
-        source: webRiskData ? 'manual-scan-with-webrisk' : 'manual-scan-local',
+        source: webRiskData ? 'manual-scan-with-webrisk' : 'manual-scan-local-only',
         scanType: 'manual',
+        localScore: localRiskAssessment.score,
+        webRiskCalled: webRiskData !== null,
         cost: 0,
         timestamp: Date.now()
       };
 
-      console.log(`✅ Manual scan complete: ${result.riskScore}/100 (${result.riskLabel})`);
+      console.log(`✅ Manual scan complete: ${result.riskScore}/100 (${result.riskLabel}) [Web Risk API: ${result.webRiskCalled ? 'Called' : 'Skipped'}]`);
 
       // Store scan result
       handleScanResult(result, scanId);
