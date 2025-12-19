@@ -14,6 +14,49 @@ app.use(express.json());
 let analysisHistory = [];
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SAFE WEBSITES DATABASE (Whitelist)
+// If domain is in this list, skip all checks and mark as SAFE
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SAFE_WEBSITES_DATABASE = [
+    // User's verified safe domains
+    'zulily.com',
+    'www.zulily.com',
+    'shoesale.com',
+    'www.shoesale.com',
+    'cashifygcmart.com',
+    'wardira.com',
+    'meetmilfy.com',
+    'freesale.com',
+    'www.freesale.com',
+    'wickedlyhydrated.gravanto.com',
+    'gravanto.com',
+    'biancakatehouston.com',
+    'stylevoostore.com',
+];
+
+// Function to check if domain is in safe database
+function isInSafeDatabase(hostname) {
+    const hostLower = hostname.toLowerCase().replace(/^www\./, '');
+
+    for (const safeDomain of SAFE_WEBSITES_DATABASE) {
+        const safeLower = safeDomain.toLowerCase().replace(/^www\./, '');
+
+        // Exact match
+        if (hostLower === safeLower) {
+            return true;
+        }
+
+        // Subdomain match (e.g., shop.zulily.com matches zulily.com)
+        if (hostLower.endsWith('.' + safeLower)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SCORING CONSTANTS (same as extension)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -973,6 +1016,52 @@ app.post('/scan', async (req, res) => {
     console.log('═'.repeat(60));
     console.log(`🔍 Scanning: ${url}`);
     console.log('═'.repeat(60));
+
+    // STEP 0: Check if domain is in safe database (whitelist)
+    console.log('🛡️ STEP 0: Checking safe websites database...');
+    if (isInSafeDatabase(hostname)) {
+        console.log(`   ✅ Domain "${hostname}" found in SAFE DATABASE`);
+        console.log('   ⏭️ Skipping all security checks');
+        console.log('═'.repeat(60));
+        console.log(`✅ Result: 0/100 (VERIFIED_SAFE)`);
+        console.log('═'.repeat(60));
+
+        const analysisId = `SCAN-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+        analysisHistory.push({
+            id: analysisId,
+            url,
+            hostname,
+            timestamp: new Date().toISOString(),
+            result: { score: 0, label: 'VERIFIED_SAFE', reasons: ['Domain is in verified safe database'] }
+        });
+
+        return res.json({
+            success: true,
+            threats: [],
+            source: 'safe-database',
+            riskScore: 0,
+            riskLabel: 'VERIFIED_SAFE',
+            riskReasons: ['✅ Domain is in verified safe websites database'],
+            preliminaryScore: 0,
+            webRiskCalled: false,
+            features: {
+                hostname: hostname,
+                inSafeDatabase: true,
+                looksLikeBrand: null,
+                isFreeHostingService: false,
+                isRiskyTld: false,
+                usesHttps: url.startsWith('https'),
+                domainAgeDays: null,
+                isNew: false,
+                sslValid: null,
+                webRiskFlagged: false,
+                webRiskThreatTypes: []
+            },
+            analysisId
+        });
+    }
+    console.log(`   ℹ️ Domain "${hostname}" not in safe database`);
+    console.log('   🔍 Proceeding with full security scan...');
 
     // STEP 1: Extract domain features
     console.log('📋 STEP 1: Extracting domain features...');
