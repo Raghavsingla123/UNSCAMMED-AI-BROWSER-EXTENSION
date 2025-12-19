@@ -257,10 +257,10 @@ function showDangerOverlay(risk, features, url) {
         </ul>
       </div>
       <div class="buttons">
-        <button class="btn-primary" onclick="window.history.back()">
+        <button class="btn-primary" id="unscammed-go-back-btn">
           ← Go Back to Safety
         </button>
-        <button class="btn-secondary" onclick="document.getElementById('unscammed-danger-overlay').remove()">
+        <button class="btn-secondary" id="unscammed-proceed-btn">
           Proceed Anyway (Not Recommended)
         </button>
       </div>
@@ -271,6 +271,15 @@ function showDangerOverlay(risk, features, url) {
   `;
 
   document.body.appendChild(overlay);
+
+  // Add event listeners (safer than inline onclick)
+  document.getElementById('unscammed-go-back-btn').addEventListener('click', () => {
+    window.history.back();
+  });
+  document.getElementById('unscammed-proceed-btn').addEventListener('click', () => {
+    document.getElementById('unscammed-danger-overlay').remove();
+  });
+
   console.log('🚨 Danger overlay displayed');
 }
 
@@ -384,13 +393,19 @@ function showWarningBanner(risk, features, url) {
           </ul>
         </details>
       </div>
-      <button class="close-btn" onclick="document.getElementById('unscammed-warning-banner').remove()">
+      <button class="close-btn" id="unscammed-dismiss-warning-btn">
         Dismiss
       </button>
     </div>
   `;
 
   document.body.insertBefore(banner, document.body.firstChild);
+
+  // Add event listener (safer than inline onclick)
+  document.getElementById('unscammed-dismiss-warning-btn').addEventListener('click', () => {
+    document.getElementById('unscammed-warning-banner').remove();
+  });
+
   console.log('⚠️ Warning banner displayed');
 }
 

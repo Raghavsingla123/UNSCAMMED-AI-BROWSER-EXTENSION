@@ -152,6 +152,42 @@ function detectPatterns(hostname, fullUrl) {
   };
 }
 
+// Helper to check if pattern appears as a word/segment (not just substring)
+function matchesAsWord(hostname, pattern) {
+  // For patterns with hyphens (like 'pay-pal'), match exactly
+  if (pattern.includes('-')) {
+    return hostname.includes(pattern);
+  }
+
+  // For regular patterns, check if it appears as a whole word/segment
+  // Split by common delimiters: dots, hyphens, underscores
+  const segments = hostname.split(/[.\-_]/);
+
+  // Check if any segment equals the pattern or starts/ends with it
+  for (const segment of segments) {
+    // Exact match in a segment
+    if (segment === pattern) {
+      return true;
+    }
+    // Pattern at start of segment (e.g., 'paypal' in 'paypalverify')
+    if (segment.startsWith(pattern) && segment.length <= pattern.length + 6) {
+      return true;
+    }
+    // Pattern at end of segment (e.g., 'paypal' in 'securepaypal')
+    if (segment.endsWith(pattern) && segment.length <= pattern.length + 6) {
+      return true;
+    }
+  }
+
+  // Also check for patterns with number substitutions (e.g., 'g00gle', 'paypa1')
+  // These are always suspicious regardless of word boundaries
+  if (/[0-9]/.test(pattern) && hostname.includes(pattern)) {
+    return true;
+  }
+
+  return false;
+}
+
 function detectBrandImpersonation(hostname) {
   const brands = [
     {
@@ -162,27 +198,27 @@ function detectBrandImpersonation(hostname) {
     {
       name: 'Google',
       patterns: ['google', 'googel', 'gooogle', 'goog1e', 'g00gle'],
-      legitDomains: ['google.com', 'gmail.com', 'google.co', 'google.ca']
+      legitDomains: ['google.com', 'gmail.com', 'google.co', 'google.ca', 'google.de', 'google.co.uk']
     },
     {
       name: 'PayPal',
       patterns: ['paypal', 'paypai', 'paypa1', 'pay-pal', 'paypa11'],
-      legitDomains: ['paypal.com']
+      legitDomains: ['paypal.com', 'paypal.me']
     },
     {
       name: 'Amazon',
       patterns: ['amazon', 'amaz0n', 'arnazon', 'amazom'],
-      legitDomains: ['amazon.com', 'amazon.co.uk', 'amazon.ca']
+      legitDomains: ['amazon.com', 'amazon.co.uk', 'amazon.ca', 'amazon.de', 'amazon.in', 'amazonaws.com']
     },
     {
       name: 'Microsoft',
-      patterns: ['microsoft', 'micros0ft', 'microsft', 'outlook', 'hotmail'],
-      legitDomains: ['microsoft.com', 'outlook.com', 'hotmail.com', 'live.com']
+      patterns: ['microsoft', 'micros0ft', 'microsft'],
+      legitDomains: ['microsoft.com', 'outlook.com', 'hotmail.com', 'live.com', 'azure.com', 'office.com']
     },
     {
       name: 'Facebook/Meta',
-      patterns: ['facebook', 'facebo0k', 'fb-', 'meta-'],
-      legitDomains: ['facebook.com', 'fb.com', 'meta.com']
+      patterns: ['facebook', 'facebo0k', 'faceb00k'],
+      legitDomains: ['facebook.com', 'fb.com', 'meta.com', 'messenger.com', 'instagram.com']
     },
     {
       name: 'Netflix',
@@ -190,50 +226,48 @@ function detectBrandImpersonation(hostname) {
       legitDomains: ['netflix.com']
     },
     {
-      name: 'Bank',
-      patterns: ['bank-', '-bank', 'banking', 'chase-', 'wellsfargo', 'bankofamerica'],
-      legitDomains: []
-    },
-    {
       name: 'WhatsApp',
       patterns: ['whatsapp', 'whatsap', 'whats-app'],
-      legitDomains: ['whatsapp.com']
+      legitDomains: ['whatsapp.com', 'whatsapp.net']
     },
     {
       name: 'Government/Tax Authority',
       patterns: [
-        'elster', 'irs', 'tax-', '-tax', 'taxes', 'hmrc', 'cra-', 'ato-',
-        'gov-', '-gov', 'govt-', 'government', 'federal', 'state-',
-        'treasury', 'revenue', 'finanz', 'fiscal'
+        'elster', 'hmrc', 'cra-arc',
+        // Only match 'irs' as exact segment to avoid false positives like 'stairs', 'first'
       ],
       legitDomains: [
         'irs.gov', 'gov.uk', 'canada.ca', 'ato.gov.au', 'elster.de',
         'gouvernement.fr', 'gobierno.es', 'bundesfinanzministerium.de'
-      ]
+      ],
+      // Use exact segment matching for these
+      exactMatch: true
     },
     {
       name: 'Cryptocurrency',
       patterns: [
-        'metamask', 'coinbase', 'binance', 'crypto-', '-crypto',
-        'wallet-', 'blockchain-', 'bitcoin', 'ethereum', 'defi'
+        'metamask', 'coinbase', 'binance'
       ],
-      legitDomains: ['metamask.io', 'coinbase.com', 'binance.com']
+      legitDomains: ['metamask.io', 'coinbase.com', 'binance.com', 'binance.us']
     }
   ];
 
   const hostLower = hostname.toLowerCase();
 
   for (const brand of brands) {
-    for (const pattern of brand.patterns) {
-      if (hostLower.includes(pattern)) {
-        // Check if it's actually a legitimate domain
-        const isLegit = brand.legitDomains.some(legitDomain => {
-          return hostLower === legitDomain || hostLower.endsWith('.' + legitDomain);
-        });
+    // Check if it's actually a legitimate domain first
+    const isLegit = brand.legitDomains.some(legitDomain => {
+      return hostLower === legitDomain || hostLower.endsWith('.' + legitDomain);
+    });
 
-        if (!isLegit) {
-          return brand.name;
-        }
+    if (isLegit) {
+      continue; // Skip to next brand
+    }
+
+    for (const pattern of brand.patterns) {
+      // Use word boundary matching to reduce false positives
+      if (matchesAsWord(hostLower, pattern)) {
+        return brand.name;
       }
     }
   }
@@ -332,13 +366,20 @@ function detectAdvancedThreats(urlObj, hostname, fullUrl) {
   }
 
   // 2. Homoglyph/Unicode attacks (lookalike characters)
+  // Be more specific - only flag truly deceptive characters, not legitimate international domains
   const homoglyphPatterns = [
-    /[а-яА-Я]/,  // Cyrillic characters
-    /[α-ωΑ-Ω]/,  // Greek characters
-    /[\u0080-\u024F]/,  // Latin Extended
-    /[\u1E00-\u1EFF]/,  // Latin Extended Additional
+    /[а-яА-ЯёЁ]/,  // Cyrillic characters (Russian) - commonly used for homoglyph attacks
+    /[αβγδεζηθικλμνξοπρστυφχψωΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ]/,  // Greek characters
+    // Specific homoglyphs that look like ASCII but aren't:
+    /[\u0430\u0435\u043E\u0440\u0441\u0443\u0445]/,  // Cyrillic lookalikes (а,е,о,р,с,у,х)
+    /[\u0391\u0392\u0395\u0396\u0397\u0399\u039A\u039C\u039D\u039F\u03A1\u03A4\u03A5\u03A7]/,  // Greek capitals that look like Latin
   ];
-  if (homoglyphPatterns.some(pattern => pattern.test(hostname))) {
+
+  // Don't flag legitimate international TLDs like .de, .fr with accented chars
+  // Only flag if homoglyphs appear in domain NAME (not TLD) on ASCII-looking domains
+  const domainWithoutTld = hostname.split('.').slice(0, -1).join('.');
+
+  if (homoglyphPatterns.some(pattern => pattern.test(domainWithoutTld))) {
     threats.hasHomoglyphs = true;
     threats.combinedWeakSignals++;
   }

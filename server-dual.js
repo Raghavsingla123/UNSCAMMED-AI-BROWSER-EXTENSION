@@ -4,6 +4,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -21,8 +22,57 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// CORS Configuration - Restrict to localhost and Chrome extension
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, or same-origin)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // Allow localhost for development
+    if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+      return callback(null, true);
+    }
+
+    // Allow Chrome extension origins
+    if (origin.startsWith('chrome-extension://')) {
+      return callback(null, true);
+    }
+
+    // Reject other origins
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+};
+
+// Rate limiting configuration
+const scanRateLimit = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 60, // 60 requests per minute (1 per second average)
+  message: {
+    success: false,
+    error: 'Too many scan requests. Please wait before trying again.',
+    retryAfter: 60
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const domainAgeRateLimit = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 100, // 100 requests per minute
+  message: {
+    success: false,
+    error: 'Too many domain age requests. Please wait before trying again.',
+    retryAfter: 60
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Request logging
@@ -65,7 +115,7 @@ app.get('/health', (req, res) => {
 });
 
 // Scan endpoint - Google Web Risk Lookup API only
-app.post('/scan', async (req, res) => {
+app.post('/scan', scanRateLimit, async (req, res) => {
   const { url } = req.body;
 
   if (!url) {
@@ -184,10 +234,73 @@ app.get('/stats/cost-estimate', (req, res) => {
 // DOMAIN AGE API - WHOIS Lookup with Caching
 // ============================================================
 
-// In-memory cache for domain ages (24-hour TTL)
+// Simple LRU Cache implementation with TTL
+class LRUCache {
+  constructor(maxSize = 1000, ttlMs = 24 * 60 * 60 * 1000) {
+    this.maxSize = maxSize;
+    this.ttlMs = ttlMs;
+    this.cache = new Map();
+  }
+
+  get(key) {
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
+
+    // Check TTL
+    if (Date.now() - entry.timestamp > this.ttlMs) {
+      this.cache.delete(key);
+      return undefined;
+    }
+
+    // Move to end (most recently used)
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+    return entry;
+  }
+
+  set(key, data) {
+    // Delete if exists (to update position)
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+
+    // Evict oldest entries if at capacity
+    while (this.cache.size >= this.maxSize) {
+      const oldestKey = this.cache.keys().next().value;
+      this.cache.delete(oldestKey);
+    }
+
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now()
+    });
+  }
+
+  get size() {
+    return this.cache.size;
+  }
+
+  // Clean expired entries periodically
+  cleanExpired() {
+    const now = Date.now();
+    for (const [key, entry] of this.cache) {
+      if (now - entry.timestamp > this.ttlMs) {
+        this.cache.delete(key);
+      }
+    }
+  }
+}
+
+// In-memory LRU cache for domain ages (max 1000 entries, 24-hour TTL)
 // TODO: Upgrade to Redis for production scaling
-const domainAgeCache = new Map();
+const domainAgeCache = new LRUCache(1000, 24 * 60 * 60 * 1000);
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// Clean expired cache entries every hour
+setInterval(() => {
+  domainAgeCache.cleanExpired();
+  console.log(`🧹 Cache cleanup complete. Current size: ${domainAgeCache.size}`);
+}, 60 * 60 * 1000);
 
 // Stats tracking
 let domainAgeStats = {
@@ -206,7 +319,7 @@ let domainAgeStats = {
  * GET /api/domain-age?domain=example.com
  * Returns domain registration age from WHOIS data
  */
-app.get('/api/domain-age', async (req, res) => {
+app.get('/api/domain-age', domainAgeRateLimit, async (req, res) => {
   const { domain } = req.query;
 
   if (!domain) {
@@ -224,9 +337,9 @@ app.get('/api/domain-age', async (req, res) => {
 
     console.log(`📅 Domain age request: ${domain} → ${registeredDomain}`);
 
-    // Check cache first
+    // Check cache first (LRU cache handles TTL internally)
     const cached = domainAgeCache.get(registeredDomain);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    if (cached) {
       domainAgeStats.cacheHits++;
       console.log(`✅ Cache HIT for ${registeredDomain}`);
       return res.json({
@@ -274,11 +387,8 @@ app.get('/api/domain-age', async (req, res) => {
       console.log(`⚠️  All APIs failed - using estimated age`);
     }
 
-    // Cache the result
-    domainAgeCache.set(registeredDomain, {
-      data: domainAgeData,
-      timestamp: Date.now()
-    });
+    // Cache the result (LRU cache handles timestamp internally)
+    domainAgeCache.set(registeredDomain, domainAgeData);
 
     res.json({
       success: true,

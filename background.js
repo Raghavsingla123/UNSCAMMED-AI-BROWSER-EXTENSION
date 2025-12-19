@@ -48,10 +48,27 @@ function initializeExtension() {
   console.log('🛡️ Extension initialized with risk scoring engine');
 }
 
+// Backend API URL - configurable via storage, defaults to localhost for development
+// In production, set this via chrome.storage.local.set({ apiBaseUrl: 'https://your-api.com' })
+const DEFAULT_API_URL = 'http://localhost:3000';
+
+async function getApiBaseUrl() {
+  return new Promise((resolve) => {
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      chrome.storage.local.get(['apiBaseUrl'], (result) => {
+        resolve(result.apiBaseUrl || DEFAULT_API_URL);
+      });
+    } else {
+      resolve(DEFAULT_API_URL);
+    }
+  });
+}
+
 // Shared function to fetch Web Risk data from API
 async function fetchWebRiskData(url) {
   try {
-    const apiUrl = 'http://localhost:3000/scan';
+    const apiBaseUrl = await getApiBaseUrl();
+    const apiUrl = `${apiBaseUrl}/scan`;
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -265,13 +282,15 @@ async function performAutomaticRiskAssessment(url, tabId) {
     }
     console.log('═'.repeat(60));
 
-    // STEP 4: Decide whether to call Web Risk API (Threshold: score >= 30)
+    // STEP 4: Decide whether to call Web Risk API (Threshold: score >= 25, aligned with SUSPICIOUS threshold)
     console.log('🌐 STEP 4: Web Risk API Decision...');
     console.log(`📊 Combined score (URL + Domain Age + HTML): ${finalRiskAssessment.score}/100`);
 
-    if (finalRiskAssessment.score >= 30) {
+    // Call Web Risk API for any site that meets SUSPICIOUS threshold (25+)
+    // This ensures all flagged sites get validated with Google's threat database
+    if (finalRiskAssessment.score >= 25) {
       // Site looks SUSPICIOUS or higher - validate with Web Risk API
-      console.log('⚠️  Site shows suspicious signals (score >= 30)');
+      console.log('⚠️  Site shows suspicious signals (score >= 25)');
       console.log('🌐 Calling Google Web Risk API for final validation...');
 
       try {
@@ -298,7 +317,7 @@ async function performAutomaticRiskAssessment(url, tabId) {
       }
     } else {
       // Site appears safe or low-risk after all free checks - skip expensive API
-      console.log('✅ Site appears safe or low-risk (score < 30)');
+      console.log('✅ Site appears safe or low-risk (score < 25)');
       console.log('💰 Skipping Web Risk API call (cost optimization)');
       console.log('💡 Final decision based on free checks only');
     }
@@ -456,11 +475,43 @@ function handleScanResult(scanResult, scanId) {
   console.log('🔍 Scan result stored with ID:', result.id);
 }
 
+// Helper function to validate message sender
+function isValidSender(sender) {
+  // Allow messages from our own extension (content scripts, popup)
+  if (sender.id === chrome.runtime.id) {
+    return true;
+  }
+  // Allow messages from extension pages (no sender.id but has extension URL)
+  if (sender.url && sender.url.startsWith(`chrome-extension://${chrome.runtime.id}`)) {
+    return true;
+  }
+  return false;
+}
+
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // Validate sender for security
+  if (!isValidSender(sender)) {
+    console.warn('⚠️ Rejected message from untrusted sender:', sender);
+    sendResponse({ success: false, error: 'Unauthorized sender' });
+    return false;
+  }
+
   // Handle HTML analysis from content script
   if (request.type === "HTML_ANALYSIS_COMPLETE") {
     console.log('🔬 HTML analysis received from content script');
+
+    // Validate required fields and types
+    if (!request.url || typeof request.url !== 'string') {
+      console.warn('⚠️ Invalid HTML analysis message - missing or invalid url');
+      sendResponse({ success: false, error: 'Invalid message format: url must be a string' });
+      return false;
+    }
+    if (!request.htmlFeatures || typeof request.htmlFeatures !== 'object') {
+      console.warn('⚠️ Invalid HTML analysis message - missing or invalid htmlFeatures');
+      sendResponse({ success: false, error: 'Invalid message format: htmlFeatures must be an object' });
+      return false;
+    }
 
     // Store HTML features temporarily (will be merged during risk assessment)
     htmlAnalysisCache.set(request.url, {
@@ -586,11 +637,11 @@ async function performManualScan(tabId, url) {
       }
       console.log('═'.repeat(60));
 
-      // STEP 4: Web Risk API Decision (threshold: 30)
+      // STEP 4: Web Risk API Decision (threshold: 25, aligned with SUSPICIOUS threshold)
       console.log('🌐 STEP 4: Web Risk API Decision...');
       console.log(`📊 Combined score: ${finalRiskAssessment.score}/100`);
 
-      if (finalRiskAssessment.score >= 30) {
+      if (finalRiskAssessment.score >= 25) {
         console.log('⚠️  SUSPICIOUS - calling Web Risk API...');
         webRiskData = await fetchWebRiskData(url);
         webRiskError = webRiskData ? null : 'API unavailable';
@@ -604,8 +655,8 @@ async function performManualScan(tabId, url) {
           console.log(`📊 Final score: ${finalRiskAssessment.score}/100`);
         }
       } else {
-        console.log('✅ Score < 30 - skipping Web Risk API');
-        webRiskError = 'Skipped (score < 30 threshold)';
+        console.log('✅ Score < 25 - skipping Web Risk API');
+        webRiskError = 'Skipped (score < 25 threshold)';
       }
       console.log('═'.repeat(60));
 
@@ -698,7 +749,7 @@ function generateDetailsMessage(riskAssessment, webRiskError) {
 
 // Generate unique ID for logging
 function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 // Error handling for unhandled promise rejections

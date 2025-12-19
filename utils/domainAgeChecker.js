@@ -3,6 +3,44 @@
 
 console.log('📅 Domain Age Checker loaded - Real WHOIS integration');
 
+// Default backend URL - can be overridden via chrome.storage or environment variable
+const DEFAULT_BACKEND_URL = 'http://localhost:3000';
+
+/**
+ * Get backend URL from storage (Chrome) or environment (Node.js)
+ */
+async function getBackendUrl() {
+  // Chrome extension context
+  if (typeof chrome !== 'undefined' && chrome.storage) {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['apiBaseUrl'], (result) => {
+        resolve(result.apiBaseUrl || DEFAULT_BACKEND_URL);
+      });
+    });
+  }
+  // Node.js context
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.BACKEND_URL || DEFAULT_BACKEND_URL;
+  }
+  return DEFAULT_BACKEND_URL;
+}
+
+/**
+ * Create an abort signal with timeout (compatible with older environments)
+ * Falls back to AbortController if AbortSignal.timeout is not available
+ */
+function createTimeoutSignal(timeoutMs) {
+  // Use AbortSignal.timeout if available (Node 18+, modern browsers)
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(timeoutMs);
+  }
+
+  // Fallback for older environments
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), timeoutMs);
+  return controller.signal;
+}
+
 /**
  * Get real domain age from WHOIS data via backend API
  * Calls backend server which handles WHOIS lookups with caching
@@ -13,18 +51,15 @@ async function getDomainAge(hostname) {
   try {
     console.log(`📡 Fetching domain age for: ${hostname}`);
 
-    // Call backend API (localhost for dev, can be configured for production)
-    const backendUrl = typeof chrome !== 'undefined' && chrome.runtime
-      ? 'http://localhost:3000' // Chrome extension context
-      : process.env.BACKEND_URL || 'http://localhost:3000'; // Node.js context
+    const backendUrl = await getBackendUrl();
 
     const response = await fetch(`${backendUrl}/api/domain-age?domain=${encodeURIComponent(hostname)}`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
       },
-      // Timeout after 10 seconds
-      signal: AbortSignal.timeout(10000)
+      // Timeout after 10 seconds (with fallback for older environments)
+      signal: createTimeoutSignal(10000)
     });
 
     if (!response.ok) {

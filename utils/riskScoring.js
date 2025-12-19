@@ -50,6 +50,19 @@ const FEATURE_THRESHOLDS = {
   NEW_DOMAIN_WHOIS_PRIVACY_DAYS: 30,
 };
 
+// Helper function to safely get numeric value (prevents NaN)
+function safeNumber(value, defaultValue = 0) {
+  if (typeof value === 'number' && !isNaN(value)) {
+    return value;
+  }
+  return defaultValue;
+}
+
+// Helper function to safely check boolean
+function safeBool(value) {
+  return value === true;
+}
+
 /**
  * Calculate risk score from domain features
  * @param {Object} domain - Domain features object
@@ -153,7 +166,7 @@ function evaluateHTMLFeatures(domain, reasons) {
   // Trust score acts as prior probability that modulates ALL other signals
   // High trust = legitimate site, weak signals should be heavily discounted
 
-  const trustScore = html.trustScore || 0;
+  const trustScore = safeNumber(html.trustScore, 0);
   const isHighTrust = trustScore >= 7;    // Strong trust signals (Gmail, PayPal, etc.)
   const isMediumTrust = trustScore >= 4;  // Some trust signals
   const isLowTrust = trustScore < 4;      // Weak/no trust signals
@@ -314,11 +327,12 @@ function evaluateHTMLFeatures(domain, reasons) {
   }
 
   // Suspicious form patterns - Modulated by trust
-  if (html.suspiciousFormPatterns > 0) {
-    const formScore = Math.round(html.suspiciousFormPatterns * 5 * weakSignalMultiplier);
+  const suspiciousPatterns = safeNumber(html.suspiciousFormPatterns);
+  if (suspiciousPatterns > 0) {
+    const formScore = Math.round(suspiciousPatterns * 5 * weakSignalMultiplier);
     if (formScore > 0) {
       score += formScore;
-      reasons.push(`⚠️ ${html.suspiciousFormPatterns} suspicious form patterns detected`);
+      reasons.push(`⚠️ ${suspiciousPatterns} suspicious form patterns detected`);
     }
   }
 
@@ -354,11 +368,12 @@ function evaluateHTMLFeatures(domain, reasons) {
   }
 
   // Suspicious hidden redirect fields - Context-dependent
-  if (html.hiddenRedirectFields > 0 && isLowTrust) {
-    score += html.hiddenRedirectFields * 8;
+  const hiddenRedirects = safeNumber(html.hiddenRedirectFields);
+  if (hiddenRedirects > 0 && isLowTrust) {
+    score += hiddenRedirects * 8;
     reasons.push(`⚠️ Hidden redirect fields detected`);
-  } else if (html.hiddenRedirectFields > 0 && isMediumTrust) {
-    score += html.hiddenRedirectFields * 3;
+  } else if (hiddenRedirects > 0 && isMediumTrust) {
+    score += hiddenRedirects * 3;
     reasons.push(`ℹ️ Hidden redirect fields detected (common in e-commerce)`);
   }
 
@@ -654,11 +669,18 @@ function getRiskDescription(label) {
   }
 }
 
-// Export for use in Chrome extension
+// Export for use in Chrome extension and Node.js
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     buildRiskScore,
     getRiskColor,
     getRiskDescription,
   };
+}
+
+// Also support global access for Chrome extension service worker (importScripts)
+if (typeof self !== 'undefined') {
+  self.buildRiskScore = buildRiskScore;
+  self.getRiskColor = getRiskColor;
+  self.getRiskDescription = getRiskDescription;
 }

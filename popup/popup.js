@@ -249,23 +249,35 @@ function displayRiskScoringStatus(riskScore, riskLabel, riskReasons) {
 async function loadExtensionStatus() {
   try {
     console.log('📊 Loading extension status');
-    
+
     // Request status from background script
     const response = await chrome.runtime.sendMessage({ type: "GET_SCAN_STATUS" });
-    
+
+    // Check for runtime errors (e.g., background script not available)
+    if (chrome.runtime.lastError) {
+      console.error('❌ Runtime error:', chrome.runtime.lastError.message);
+      extensionStatusElement.textContent = 'Unavailable';
+      extensionStatusElement.style.color = '#c00';
+      return;
+    }
+
     if (response && response.success) {
       const state = response.state;
-      
+
       // Update total scans
       totalScansElement.textContent = state.totalScans || 0;
-      
+
       // Update extension status
       extensionStatusElement.textContent = state.isActive ? 'Active' : 'Inactive';
       extensionStatusElement.style.color = state.isActive ? '#090' : '#c00';
-      
+
       console.log('📊 Extension status loaded:', state);
+    } else {
+      console.warn('⚠️ Invalid response from background script');
+      extensionStatusElement.textContent = 'Unknown';
+      extensionStatusElement.style.color = '#f90';
     }
-    
+
   } catch (error) {
     console.error('❌ Error loading extension status:', error);
     extensionStatusElement.textContent = 'Error';
