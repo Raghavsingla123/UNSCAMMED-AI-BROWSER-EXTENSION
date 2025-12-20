@@ -979,9 +979,9 @@ app.get('/', (req, res) => {
         message: 'UNSCAMMED.AI Fraud Detection API',
         version: '2.0.0',
         endpoints: {
-            scan: 'POST /scan',
+            fraudCheck: 'POST /api/fraud-check',
             health: 'GET /api/health',
-            history: 'GET /api/scan/history'
+            history: 'GET /api/fraud-check/history'
         }
     });
 });
@@ -991,8 +991,8 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Main scan endpoint
-app.post('/scan', async (req, res) => {
+// Main fraud check endpoint
+app.post('/api/fraud-check', async (req, res) => {
     const { url } = req.body;
 
     if (!url) {
@@ -1196,7 +1196,7 @@ app.post('/scan', async (req, res) => {
 });
 
 // History endpoint
-app.get('/api/scan/history', (req, res) => {
+app.get('/api/fraud-check/history', (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const recentHistory = analysisHistory.slice(-limit).reverse();
     res.json({
@@ -1220,8 +1220,8 @@ app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log('');
     console.log('Available endpoints:');
-    console.log('  POST /scan              - Scan a URL for threats');
-    console.log('  GET  /api/scan/history  - View scan history');
+    console.log('  POST /api/fraud-check   - Check a URL for fraud/phishing');
+    console.log('  GET  /api/fraud-check/history  - View analysis history');
     console.log('  GET  /api/health        - Health check');
     console.log('═'.repeat(60));
 });
